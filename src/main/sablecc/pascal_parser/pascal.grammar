@@ -1,0 +1,173 @@
+Package pascal_parser;
+
+
+Helpers
+
+  any_character = [0x0 .. 0xfffff];
+  lf = 10;
+  cr = 13;
+  letter = ['a'..'z'] | ['A'..'Z'];
+  digit = ['0'..'9'];
+
+  line_terminator = lf | cr | cr lf;
+  left_brace = '{';
+  right_brace = '}';
+  minus = '-';
+
+
+
+Tokens
+
+  begin = 'begin';
+  end = 'end';
+  program = 'program';
+  const = 'const';
+  type = 'type';
+  goto = 'goto';
+  label = 'label';
+  case = 'case';
+  of = 'of';
+  if = 'if';
+  then = 'then';
+  or = 'or';
+  else = 'else';
+  repeat = 'repeat';
+  for = 'for';
+  to = 'to';
+  do = 'do';
+  until = 'until';
+  var = 'var';
+  procedure = 'procedure';
+  packed = 'packed';
+
+  // types
+  boolean = 'boolean';
+  file = 'file';
+  record = 'record';
+  integer = 'integer';
+  real = 'real';
+  array = 'array';
+  char = 'char';
+  byte = 'byte';
+
+  identifier = letter (letter | digit)*;
+  dot = '.';
+  semicolon = ';';
+  colon = ':';
+  comma = ',';
+  equal = '=';
+  range_op = '.' '.';
+  left_square_bracket = '[';
+  right_square_bracket = ']';
+  left_paren = '(';
+  right_paren = ')';
+  assign_op = ':=';
+  unary_minus = minus;
+
+  comment = left_brace [any_character-right_brace]* right_brace;
+  blank = ' ' | '\t' | line_terminator;
+
+  number = minus? digit+;
+
+  // String literal.  Single-quotes are escaped by doubling them.
+  string_literal = ''' ([any_character - [''' + [cr + lf]]]* | ''''''*) ''';
+
+
+
+Ignored Tokens
+
+  comment,
+  blank;
+
+
+
+Productions
+
+  pascal_program = program_header
+  program_decl
+  program_body
+  dot;
+
+  program_header = program [program_name]:identifier semicolon;
+  program_decl = program_decl_item*;
+  program_decl_item = {label} label_decl
+                    | {const} const_decl_block
+                    | {var} var_decl_block
+                    | {proc} proc_decl_block
+                    | {type} type_decl_block;
+  program_body = begin statements end;
+
+  // Label declarations
+  label_decl = label label_list semicolon;
+  label_list = {single} number | {multiple} label_list comma number;
+
+
+  // Const declarations
+  const_decl_block = const const_decl_list;
+  const_decl_list = const_decl+;
+  const_decl = identifier equal literal_value semicolon;
+
+
+  // Type declarations
+  type_decl_block = type type_decl_list;
+  type_decl_list = type_decl+;
+  type_decl = identifier equal generic_type semicolon;
+
+  // Var declarations
+  var_decl_block = var var_decl_list;
+  var_decl_list = var_decl+;
+  var_decl = identifier_list colon generic_type semicolon;
+
+  // Procedure declarations
+  proc_decl_block =  proc_decl_header var_decl_block? begin statements end semicolon;
+  proc_decl_header = procedure [proc_name]:identifier proc_param_decl semicolon;
+  proc_param_decl = {empty} | {args} left_paren var_decl+ right_paren;
+
+  literal_value = {num} number
+                | {string} string_literal
+                ;
+
+  range_expr = [min_val]:range_expr_limit range_op [max_val]:range_expr_limit;
+  range_expr_limit = {integer} number | {var} unary_minus? identifier;
+
+  generic_type = {packed_type} packed generic_type
+               | {file_def} file_type_def
+               | {record} record_def
+               | {simple} simple_type
+               ;
+
+  simple_type = {char_type} char
+              | {boolean_type} boolean
+              | {integer_type} integer
+              | {real_type} real
+              | {byte_type} byte
+              | {array_type} array_type_def
+              | {user_type} [type_name]:identifier
+              | {range_type} range_expr
+              ;
+  file_type_def = file of [sub_type]:simple_type;
+
+  // Record definition
+  record_def = record record_member+ end;
+  record_member = {simple_member} simple_member_type semicolon
+                | {case_member} case [member_type]:identifier of case_branch+ ;
+
+  simple_member_type_list = {simple} simple_member_type | {list} simple_member_type semicolon simple_member_type_list;
+  simple_member_type = identifier_list  colon simple_type;
+  identifier_list = {simple} identifier | identifier_list comma identifier;
+
+  case_branch = {branch} case_label left_paren simple_member_type_list right_paren semicolon ;
+  case_label = number colon;
+
+  array_type_def = array left_square_bracket simple_type right_square_bracket array_of?;
+  array_of = of generic_type;
+  array_index = {num_index} number
+              | {var_index} identifier
+              ;
+
+  statements = statement+ ;
+  statement = {assign} assignment semicolon | {for} for_loop_stmt;
+  assignment = var_access assign_op literal_value;
+  for_loop_stmt = for assignment to number do statement ;
+
+  var_access = {var} identifier | {arr} identifier left_square_bracket array_index right_square_bracket;
