@@ -12,8 +12,6 @@ Helpers
   line_terminator = lf | cr | cr lf;
   left_brace = '{';
   right_brace = '}';
-  minus = '-';
-
 
 
 Tokens
@@ -37,8 +35,12 @@ Tokens
   do = 'do';
   until = 'until';
   var = 'var';
+  while = 'while';
   procedure = 'procedure';
   packed = 'packed';
+
+  false = 'false';
+  true = 'true';
 
   // types
   boolean = 'boolean';
@@ -50,24 +52,34 @@ Tokens
   char = 'char';
   byte = 'byte';
 
-  identifier = letter (letter | digit)*;
   dot = '.';
   semicolon = ';';
   colon = ':';
   comma = ',';
-  equal = '=';
   range_op = '.' '.';
   left_square_bracket = '[';
   right_square_bracket = ']';
   left_paren = '(';
   right_paren = ')';
   assign_op = ':=';
-  unary_minus = minus;
+  lt = '<';
+  gt = '>';
+  leq = '<=';
+  geq = '>=';
+  neq = '!=';
+  equal = '=';
+
+  plus = '+';
+  minus = '-';
+  times = '*';
+  div = '/';
+  mod = 'div';
 
   comment = left_brace [any_character-right_brace]* right_brace;
   blank = ' ' | '\t' | line_terminator;
 
-  number = minus? digit+;
+  identifier = letter (letter | digit)*;
+  number = digit+;
 
   // String literal.  Single-quotes are escaped by doubling them.
   string_literal = ''' ([any_character - [''' + [cr + lf]]]* | ''''''*) ''';
@@ -125,16 +137,21 @@ Productions
 
   literal_value = {num} number
                 | {string} string_literal
+                | {bool} boolean_literal
                 ;
 
+  boolean_literal = {true} true
+                  | {false} false;
+
   range_expr = [min_val]:range_expr_limit range_op [max_val]:range_expr_limit;
-  range_expr_limit = {integer} number | {var} unary_minus? identifier;
+  range_expr_limit = expression;
 
   generic_type = {packed_type} packed generic_type
                | {file_def} file_type_def
                | {record} record_def
                | {simple} simple_type
                ;
+
 
   simple_type = {char_type} char
               | {boolean_type} boolean
@@ -165,9 +182,66 @@ Productions
               | {var_index} identifier
               ;
 
-  statements = statement+ ;
-  statement = {assign} assignment semicolon | {for} for_loop_stmt;
-  assignment = var_access assign_op literal_value;
-  for_loop_stmt = for assignment to number do statement ;
+  statements = {single} statement
+             | {multiple} statements semicolon statement;
+  statement = {assign} assignment
+            | {for} for_loop_stmt
+            | {while} while_stmt
+            | {goto} goto_stmt
 
-  var_access = {var} identifier | {arr} identifier left_square_bracket array_index right_square_bracket;
+// Need to fix shift/reduce conflict here.
+            | {case} case_stmt
+            | {empty} ;
+
+// shift/reduce conflict in state [stack: PProgramHeader PProgramDecl TBegin TWhile PExpression TDo TCase TIdentifier TOf P$CaseBranchStmt *] on TNumber in {
+// 	[ PCaseLabel = * TNumber TColon ] (shift),
+// 	[ PWhileStmt = TWhile PExpression TDo TCase TIdentifier TOf P$CaseBranchStmt * ] followed by TNumber (reduce)
+// }
+
+
+  statement_group = {single} statement
+                  | {multiple} begin statements end;
+
+
+  assignment = var_access assign_op expression;
+  for_loop_stmt = for assignment to expression do statement_group;
+  while_stmt = while expression do statement_group;
+  goto_stmt = goto number;
+  case_stmt = case [member_type]:identifier of case_branch_stmt+;
+  case_branch_stmt = case_label statement_group ;
+
+
+  // Expressions
+  var_access = {var} identifier
+             | {rec} record_access
+             | {arr} array_access;
+
+  record_access = var_access dot [member]:identifier;
+  array_access = identifier left_square_bracket expression right_square_bracket;
+
+  procedure_invocation = identifier left_paren argument_list? right_paren;
+
+  argument_list = {expression} expression
+                | {argument_list} argument_list comma expression;
+
+  expression = conditional_expression;
+  conditional_expression = {eq_expression} equal_expression;
+  equal_expression = {comparison_expression} comparison_expression
+                   | {equal} equal_expression equal comparison_expression
+                   | {not_equal} equal_expression neq comparison_expression;
+  comparison_expression = {add_expression} add_expression
+                        | {leq} comparison_expression leq add_expression
+                        | {geq} comparison_expression geq add_expression;
+  add_expression = {mult_expression} mult_expression
+                 | {plus} add_expression plus mult_expression
+                 | {minus} add_expression minus mult_expression;
+  mult_expression = {unary_expression} unary_expression
+                  | {times} mult_expression times unary_expression
+                  | {division} mult_expression div unary_expression
+                  | {mod} mult_expression mod unary_expression;
+  unary_expression = {val} val_expression
+                   | {plus} plus unary_expression
+                   | {minus} minus unary_expression;
+  val_expression = {procedure} procedure_invocation
+                 | {var} var_access
+                 | {literal} literal_value;
