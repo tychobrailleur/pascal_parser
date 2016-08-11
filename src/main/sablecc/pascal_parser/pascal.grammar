@@ -182,33 +182,43 @@ Productions
               | {var_index} identifier
               ;
 
+  statement = {simple} simple_stmt
+            | {complex} complex_stmt;
+
   statements = {single} statement
              | {multiple} statements semicolon statement;
-  statement = {assign} assignment
-            | {for} for_loop_stmt
-            | {while} while_stmt
-            | {goto} goto_stmt
 
-// Need to fix shift/reduce conflict here.
-            | {case} case_stmt
-            | {empty} ;
+  simple_stmt = {assign} assignment
+              | {goto} goto_stmt
+              | {proc} procedure_invocation
+              | {empty}
+              ;
+  complex_stmt = {group} statement_group
+               | {condition} condition_stmt
+               | {loop} loop_stmt
+               ;
 
-// shift/reduce conflict in state [stack: PProgramHeader PProgramDecl TBegin TWhile PExpression TDo TCase TIdentifier TOf P$CaseBranchStmt *] on TNumber in {
-// 	[ PCaseLabel = * TNumber TColon ] (shift),
-// 	[ PWhileStmt = TWhile PExpression TDo TCase TIdentifier TOf P$CaseBranchStmt * ] followed by TNumber (reduce)
-// }
-
-
-  statement_group = {single} statement
-                  | {multiple} begin statements end;
+  condition_stmt = {case} case_stmt;
+  loop_stmt = {for_loop} for_loop_stmt
+            | {while} while_stmt;
+  statement_group = begin statements end;
 
 
   assignment = var_access assign_op expression;
-  for_loop_stmt = for assignment to expression do statement_group;
-  while_stmt = while expression do statement_group;
+  for_loop_stmt = for assignment to expression do statement;
+  while_stmt = while expression do statement;
   goto_stmt = goto number;
-  case_stmt = case [member_type]:identifier of case_branch_stmt+;
-  case_branch_stmt = case_label statement_group ;
+  case_stmt = case [member_type]:expression of case_stmt_branches end_case;
+  case_stmt_branches = {single} case_stmt_branch
+                | {mult} case_stmt_branches semicolon case_stmt_branch
+                ;
+  case_stmt_branch = expression_list colon statement;
+  end_case = {end} end
+           | {semi_end} semicolon end
+           ;
+
+  expression_list = {single} expression
+                  | expression_list comma expression;
 
 
   // Expressions

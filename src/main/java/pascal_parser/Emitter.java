@@ -10,7 +10,12 @@ public class Emitter extends DepthFirstAdapter {
 
     @Override
     public void inAProgramHeader(AProgramHeader node) {
-        System.out.println("Found Program: " + node.getProgramName());
+        System.out.println("program " + node.getProgramName() + ";");
         level++;
+    }
+
+    public void outAProgramHeader(AProgramHeader node) {
+        System.out.println("end.");
+        level--;
     }
 }
