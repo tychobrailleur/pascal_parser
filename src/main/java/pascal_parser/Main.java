@@ -19,7 +19,7 @@ public class Main {
 
         try {
             FileReader infile = new FileReader(args[0]);
-            Lexer l = new Lexer(new PushbackReader(new BufferedReader(infile), 1024));
+            Lexer l = new PrintLexer(new PushbackReader(new BufferedReader(infile), 1024));
             Parser p = new Parser(l);
             Start tree = p.parse();
 
