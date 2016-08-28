@@ -32,12 +32,14 @@ Tokens
   for = 'for';
   to = 'to';
   do = 'do';
+  not = 'not';
   until = 'until';
   var = 'var';
   while = 'while';
   procedure = 'procedure';
   forward = 'forward';
   packed = 'packed';
+  function = 'function';
 
   false = 'false';
   true = 'true';
@@ -62,12 +64,14 @@ Tokens
   left_paren = '(';
   right_paren = ')';
   assign_op = ':=';
+  neq_diamond = '<>';
   lt = '<';
   gt = '>';
   leq = '<=';
   geq = '>=';
   neq = '!=';
   equal = '=';
+  caret = '^';
 
   plus = '+';
   minus = '-';
@@ -85,7 +89,7 @@ Tokens
   number = digit+;
 
   // String literal.  Single-quotes are escaped by doubling them.
-  string_literal = ''' ([any_character - [''' + [cr + lf]]]* | ''''''*) ''';
+  string_literal = ''' ([any_character - [''' + [cr + lf]]]* | '''''') ''';
 
 
 
@@ -109,6 +113,7 @@ Productions
                     | {const} const_decl_block
                     | {var} var_decl_block
                     | {proc} proc_decl_block
+                    | {func} func_decl_block
                     | {type} type_decl_block;
   program_body = begin statements end;
 
@@ -136,14 +141,22 @@ Productions
 
   arg_decl = identifier_list colon generic_type;
   arg_decl_list = {simple} arg_decl
-                | {mult} arg_decl_list semicolon arg_decl;
+                | {multi} arg_decl_list semicolon arg_decl;
 
   // Procedure declarations
   proc_decl_block = proc_decl_header label_decl_block? var_decl_block? prog_decl_body semicolon;
   prog_decl_body = {fwd} forward
-                 | {forward} begin statements label_def? end;
+                 | {forward} begin statements end;
   proc_decl_header = procedure [proc_name]:identifier proc_param_decl? semicolon;
-  proc_param_decl = {args} left_paren arg_decl_list right_paren;
+  proc_param_decl = {args} left_paren prog_arg_list right_paren;
+
+  prog_arg_list = {simple} var? arg_decl
+                | {multi} prog_arg_list semicolon arg_decl;
+
+  // Function declarations
+  func_decl_block = func_decl_header label_decl_block? var_decl_block? prog_decl_body semicolon;
+  func_decl_header = function [name]:identifier func_param_decl? colon [type]:simple_type semicolon;
+  func_param_decl = left_paren prog_arg_list right_paren;
 
   literal_value = {num} number
                 | {string} string_literal
@@ -159,6 +172,7 @@ Productions
   generic_type = {packed_type} packed generic_type
                | {file_def} file_type_def
                | {record} record_def
+               | {pointer} pointer_def
                | {simple} simple_type
                ;
 
@@ -172,6 +186,7 @@ Productions
               | {range_type} range_expr
               ;
   file_type_def = file of [sub_type]:simple_type;
+  pointer_def = caret simple_type;
 
   // Record definition
   record_def = record record_member+ end;
@@ -189,11 +204,9 @@ Productions
 
   array_type_def = array left_square_bracket simple_type right_square_bracket array_of?;
   array_of = of generic_type;
-  array_index = {num_index} number
-              | {var_index} identifier
-              ;
 
   statement = {without_stmt} stmt_without_trailing_stmt
+            | {label} label_def statement
             | {if} if [cond]:expression then statement
             | {if_else} if [cond]:expression then [then_branch]:stmt_no_short_if else [else_branch]:statement
             | {case} case_stmt
@@ -204,7 +217,8 @@ Productions
              | {multiple} statements semicolon statement;
 
   stmt_no_short_if = {without_stmt} stmt_without_trailing_stmt
-                   | {if} if [conf]:expression [t]:then [then]:stmt_no_short_if [e]:else [else]:stmt_no_short_if
+                   | {label} label_def stmt_no_short_if
+                   | {if} if [conf]:expression then [then_branch]:stmt_no_short_if else [else_branch]:stmt_no_short_if
                    | {while} while expression do stmt_no_short_if
                    | {for} for assignment to expression do stmt_no_short_if
                    ;
@@ -212,28 +226,17 @@ Productions
                              | {goto} goto_stmt
                              | {group} statement_group
                              | {proc_def} proc_decl_block
+                             | {func_def} func_decl_block
                              | {proc} procedure_invocation
                              | {proc_no_arg} proc_invocation_no_arg // Yuk.
                              | {label} label_decl
                              | {repeat} repeat_stmt
                              | {empty}
                              ;
-  simple_stmt = {assign} assignment
-              | {goto} goto_stmt
-              | {proc_def} proc_decl_block
-              | {proc} procedure_invocation
-              | {proc_no_arg} proc_invocation_no_arg // Yuk.
-              | {label} label_decl
-              | {empty}
-              ;
-  complex_stmt = {group} statement_group
-               | {case} case_stmt
-               | {loop} loop_stmt
-               ;
 
   loop_stmt = {for_loop} for_loop_stmt
             | {while} while_stmt;
-  statement_group = begin statements label_def? end;
+  statement_group = begin statements end;
   label_def = number colon;
   repeat_stmt = repeat statements until expression;
 
@@ -257,10 +260,13 @@ Productions
   // Expressions
   var_access = {var} identifier
              | {rec} record_access
-             | {arr} array_access;
+             | {arr} array_access
+             | {pointer} pointer_access;
+
 
   record_access = var_access dot [member]:identifier;
   array_access = identifier left_square_bracket expression right_square_bracket;
+  pointer_access = [address]:identifier caret;
 
   procedure_invocation = identifier left_paren argument_list? right_paren;
   // FIXME: reduce/reduce conflicts if this is made part of procedure_invocation.
@@ -273,7 +279,8 @@ Productions
   conditional_expression = {equal_expression} equal_expression;
   equal_expression = {comparison_expression} comparison_expression
                    | {equal} equal_expression equal comparison_expression
-                   | {not_equal} equal_expression neq comparison_expression;
+                   | {not_equal} equal_expression neq comparison_expression
+                   | {not_equal_diamond} equal_expression neq_diamond comparison_expression;
   comparison_expression = {add_expression} add_expression
                         | {lt} comparison_expression lt add_expression
                         | {gt} comparison_expression gt add_expression
@@ -292,7 +299,8 @@ Productions
                   | {and} bool_expression and unary_expression;
   unary_expression = {val} val_expression
                    | {plus} plus unary_expression
-                   | {minus} minus unary_expression;
+                   | {minus} minus unary_expression
+                   | {not} not unary_expression;
   val_expression = {procedure} procedure_invocation
                  | {var} var_access
                  | {literal} literal_value
