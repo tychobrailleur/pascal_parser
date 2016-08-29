@@ -12,6 +12,10 @@ Helpers
   line_terminator = lf | cr | cr lf;
   left_brace = '{';
   right_brace = '}';
+  single_quote = ''';
+
+  float = digit (digit)* '.' digit (digit)* (('E' | 'e') ('+' | '-')? digit (digit)*)?;
+
 
 
 Tokens
@@ -87,9 +91,10 @@ Tokens
 
   identifier = letter (letter | digit)*;
   number = digit+;
+  float = float;
 
   // String literal.  Single-quotes are escaped by doubling them.
-  string_literal = ''' ([any_character - [''' + [cr + lf]]]* | '''''') ''';
+  string_literal = single_quote ([single_quote + single_quote] | [any_character - [''' + [cr + lf]]])* single_quote;
 
 
 
@@ -160,6 +165,7 @@ Productions
 
   literal_value = {num} number
                 | {string} string_literal
+                | {float} float
                 | {bool} boolean_literal
                 ;
 
