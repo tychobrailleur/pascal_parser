@@ -35,6 +35,7 @@ Tokens
   repeat = 'repeat';
   for = 'for';
   to = 'to';
+  downto = 'downto';
   do = 'do';
   not = 'not';
   until = 'until';
@@ -211,25 +212,26 @@ Productions
   array_type_def = array left_square_bracket simple_type right_square_bracket array_of?;
   array_of = of generic_type;
 
+  statements = {single} statement
+             | {multiple} statements semicolon statement;
+
   statement = {without_stmt} stmt_without_trailing_stmt
             | {label} label_def statement
             | {if} if [cond]:expression then statement
             | {if_else} if [cond]:expression then [then_branch]:stmt_no_short_if else [else_branch]:statement
-            | {case} case_stmt
             | {while} while_stmt
             | {for_loop} for_loop_stmt
             ;
-  statements = {single} statement
-             | {multiple} statements semicolon statement;
 
   stmt_no_short_if = {without_stmt} stmt_without_trailing_stmt
                    | {label} label_def stmt_no_short_if
                    | {if} if [conf]:expression then [then_branch]:stmt_no_short_if else [else_branch]:stmt_no_short_if
                    | {while} while expression do stmt_no_short_if
-                   | {for} for assignment to expression do stmt_no_short_if
+                   | {for} for_loop_stmt_no_short_if
                    ;
   stmt_without_trailing_stmt = {assign} assignment
                              | {goto} goto_stmt
+                             | {case} case_stmt
                              | {group} statement_group
                              | {proc_def} proc_decl_block
                              | {func_def} func_decl_block
@@ -240,14 +242,16 @@ Productions
                              | {empty}
                              ;
 
-  loop_stmt = {for_loop} for_loop_stmt
-            | {while} while_stmt;
   statement_group = begin statements end;
   label_def = number colon;
   repeat_stmt = repeat statements until expression;
 
   assignment = var_access assign_op expression;
-  for_loop_stmt = for assignment to expression do statement;
+  for_loop_stmt = {up} for assignment to expression do statement
+                | {down} for assignment downto expression do statement;
+
+  for_loop_stmt_no_short_if = {up} for assignment to expression do stmt_no_short_if
+                            | {down} for assignment downto expression do stmt_no_short_if;
   while_stmt = while expression do statement;
   goto_stmt = goto number;
   case_stmt = case [member_type]:expression of case_stmt_branches end_case;
@@ -278,8 +282,10 @@ Productions
   // FIXME: reduce/reduce conflicts if this is made part of procedure_invocation.
   proc_invocation_no_arg = identifier;
 
-  argument_list = {expression} expression
-                | {argument_list} argument_list comma expression;
+  argument_list = {expression} arg
+                | {argument_list} argument_list comma arg;
+  arg = {simple} expression
+      | {width} expression colon [width]:number;
 
   expression = conditional_expression;
   conditional_expression = {equal_expression} equal_expression;
