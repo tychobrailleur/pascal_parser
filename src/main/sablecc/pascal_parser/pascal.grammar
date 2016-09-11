@@ -108,82 +108,84 @@ Ignored Tokens
 
 Productions
 
-  pascal_program = program_header
-  program_decl
-  program_body
-  dot;
+  pascal_program { -> pascal_program } =
+      [program_header]:program_header
+      [program_decl]:program_decl
+      [program_body]:program_body
+      dot { -> New pascal_program(program_header, program_decl, program_body) };
 
-  program_header = program [program_name]:identifier semicolon;
-  program_decl = program_decl_item*;
-  program_decl_item = {label} label_decl
-                    | {const} const_decl_block
-                    | {var} var_decl_block
-                    | {proc} proc_decl_block
-                    | {func} func_decl_block
-                    | {type} type_decl_block;
-  program_body = begin statements end;
+  program_header { -> program_header } = program [program_name]:identifier semicolon { -> New program_header(program_name) };
+  program_decl { -> program_decl } = program_decl_item* { -> New program_decl([program_decl_item]) };
+  program_decl_item { -> program_decl_item } = {label} label_decl {-> label_decl.label_decl }
+                    | {const} const_decl_block {-> const_decl_block.const_decl }
+                    | {var} var_decl_block { -> var_decl_block.var_decl }
+                    | {proc} proc_decl_block { -> proc_decl_block.proc_decl }
+                    | {func} func_decl_block { -> func_decl_block.func_decl }
+                    | {type} type_decl_block { -> type_decl_block.type_decl };
+  program_body { -> program_body } = begin [body]:statements end { -> New program_body([body.statement]) };
 
   // Label declarations
   label_decl_block = label_decl+;
-  label_decl = label label_list semicolon;
-  label_list = {single} number | {multiple} label_list comma number;
+  label_decl { -> label_decl } = [label]:label [labels]:label_list semicolon { -> [labels.label] };
+  label_list { -> label* } = {single} number { -> [number] } | {multiple} label_list comma number { -> [label_list.label]};
 
 
   // Const declarations
-  const_decl_block = const const_decl_list;
-  const_decl_list = const_decl+;
-  const_decl = identifier equal literal_value semicolon;
+  const_decl_block { -> const_decl* } = const const_decl_list { -> [const_decl_list.const_decl] };
+  const_decl_list { -> const_decl* } = const_decl+ { -> [const_decl] };
+  const_decl { -> const_decl } = [name]:identifier equal expression semicolon { -> New  const_decl(name, expression) };
 
 
   // Type declarations
-  type_decl_block = type type_decl_list;
-  type_decl_list = type_decl+;
-  type_decl = identifier equal generic_type semicolon;
+  type_decl_block { -> type_decl* } = type type_decl_list { -> [type_decl_list.type_decl] };
+  type_decl_list { -> type_decl* } = type_decl+ { -> [type_decl]};
+  type_decl { -> type_decl } = [name]:identifier equal [type]:generic_type semicolon { -> New type_decl(name, type.typedef)};
 
   // Var declarations
-  var_decl_block = var var_decl_list;
-  var_decl_list = var_decl+;
-  var_decl = arg_decl semicolon;
+  var_decl_block { -> var_decl* } = var var_decl_list { -> [var_decl_list.var_decl] };
+  var_decl_list { -> var_decl* } = var_decl+ { -> [var_decl] };
+  var_decl { -> var_decl } = arg_decl semicolon { -> arg_decl.var_decl };
 
-  arg_decl = identifier_list colon generic_type;
-  arg_decl_list = {simple} arg_decl
-                | {multi} arg_decl_list semicolon arg_decl;
+  arg_decl { -> var_decl* } = [vars]:identifier_list colon generic_type { -> New var_decl([vars.identifier], generic_type.typedef, Null) };
+  arg_decl_list { -> var_decl* } = {simple} arg_decl { -> [arg_decl.var_decl] }
+                | {multi} arg_decl_list semicolon arg_decl { -> [arg_decl_list.var_decl, arg_decl.var_decl]};
 
   // Procedure declarations
-  proc_decl_block = proc_decl_header label_decl_block? var_decl_block? prog_decl_body semicolon;
-  prog_decl_body = {fwd} forward
-                 | {forward} begin statements end;
-  proc_decl_header = procedure [proc_name]:identifier proc_param_decl? semicolon;
-  proc_param_decl = {args} left_paren prog_arg_list right_paren;
+  proc_decl_block { -> proc_decl } = procedure [proc_name]:identifier proc_param_decl? [end_head]:semicolon
+                                     label_decl_block? var_decl_block? prog_decl_body [end_proc]:semicolon
+                                     { -> New proc_decl(proc_name, [proc_param_decl.var_decl], [prog_decl_body.statement])};
+  prog_decl_body { -> statement* } = {fwd} forward { -> Null }
+                 | {forward} begin statements end { -> [statements.statement] };
+  proc_param_decl { -> var_decl* } = {args} left_paren prog_arg_list right_paren { -> [prog_arg_list.var_decl] };
 
-  prog_arg_list = {simple} var? arg_decl
-                | {multi} prog_arg_list semicolon arg_decl;
+  prog_arg_list { -> var_decl* } = {simple} var? arg_decl { -> arg_decl.var_decl }
+                | {multi} prog_arg_list semicolon arg_decl { -> [prog_arg_list.var_decl, arg_decl.var_decl] };
 
   // Function declarations
-  func_decl_block = func_decl_header label_decl_block? var_decl_block? prog_decl_body semicolon;
-  func_decl_header = function [name]:identifier func_param_decl? colon [type]:simple_type semicolon;
-  func_param_decl = left_paren prog_arg_list right_paren;
+  func_decl_block { -> func_decl } = function [name]:identifier func_param_decl? colon [type]:simple_type [end_head]:semicolon
+                                     label_decl_block? var_decl_block? prog_decl_body [end_func]:semicolon
+                                      { -> New proc_decl(name, [func_param_decl.var_decl], [prog_decl_body.statement])};
+  func_param_decl { -> var_decl* } = left_paren prog_arg_list right_paren { -> [prog_arg_list.var_decl] };
 
-  literal_value = {num} number
+  literal_value { -> expression } = {num} number
                 | {string} string_literal
                 | {float} float
-                | {bool} boolean_literal
+                | {bool} boolean_literal { -> boolean_literal.expression }
                 ;
 
-  boolean_literal = {true} true
+  boolean_literal { -> expression } = {true} true
                   | {false} false;
 
-  range_expr = [min_val]:range_expr_limit range_op [max_val]:range_expr_limit;
-  range_expr_limit = expression;
+  range_expr { -> range } = [min_val]:expression range_op [max_val]:expression { -> New range(min_val, max_val) };
 
-  generic_type = {packed_type} packed generic_type
+  generic_type { -> typedef } = {packed_type} packed generic_type
                | {file_def} file_type_def
                | {record} record_def
                | {pointer} pointer_def
                | {simple} simple_type
                ;
 
-  simple_type = {char_type} char
+  simple_type { -> typedef } = {char_type} char
               | {boolean_type} boolean
               | {integer_type} integer
               | {real_type} real
@@ -203,8 +205,8 @@ Productions
   simple_member_type_list = {simple} simple_member_type
                           | {list} simple_member_type semicolon simple_member_type_list;
   simple_member_type = identifier_list colon simple_type;
-  identifier_list = {simple} identifier
-                  | identifier_list comma identifier;
+  identifier_list { -> identifier* } = {simple} identifier { -> [identifier] }
+                  | identifier_list comma identifier { -> [identifier_list.identifier, identifier] };
 
   case_branch = {branch} case_label left_paren simple_member_type_list right_paren semicolon ;
   case_label = number colon;
@@ -212,10 +214,10 @@ Productions
   array_type_def = array left_square_bracket simple_type right_square_bracket array_of?;
   array_of = of generic_type;
 
-  statements = {single} statement
-             | {multiple} statements semicolon statement;
+  statements { -> statement* } = {single} statement { -> [statement] }
+             | {multiple} [list]:statements semicolon [statement]:statement { -> [list.statement, statement.statement] };
 
-  statement = {without_stmt} stmt_without_trailing_stmt
+  statement { -> statement } = {without_stmt} stmt_without_trailing_stmt
             | {label} label_def statement
             | {if} if [cond]:expression then statement
             | {if_else} if [cond]:expression then [then_branch]:stmt_no_short_if else [else_branch]:statement
@@ -223,13 +225,13 @@ Productions
             | {for_loop} for_loop_stmt
             ;
 
-  stmt_no_short_if = {without_stmt} stmt_without_trailing_stmt
+  stmt_no_short_if { -> statement } = {without_stmt} stmt_without_trailing_stmt
                    | {label} label_def stmt_no_short_if
                    | {if} if [conf]:expression then [then_branch]:stmt_no_short_if else [else_branch]:stmt_no_short_if
                    | {while} while expression do stmt_no_short_if
                    | {for} for_loop_stmt_no_short_if
                    ;
-  stmt_without_trailing_stmt = {assign} assignment
+  stmt_without_trailing_stmt { -> statement } = {assign} assignment
                              | {goto} goto_stmt
                              | {case} case_stmt
                              | {group} statement_group
@@ -313,7 +315,63 @@ Productions
                    | {plus} plus unary_expression
                    | {minus} minus unary_expression
                    | {not} not unary_expression;
-  val_expression = {procedure} procedure_invocation
+  val_expression { -> expression } = {procedure} procedure_invocation
                  | {var} var_access
-                 | {literal} literal_value
+                 | {literal} [literal]:literal_value { -> literal.expression }
                  | {expr} left_paren expression right_paren;
+
+
+
+
+Abstract Syntax Tree
+
+  pascal_program =
+      program_header
+      program_decl
+      program_body;
+
+  program_header = [name]:identifier;
+  program_decl = program_decl_item*;
+  program_decl_item = {label} label label_decl*
+                    | {const} const const_decl*
+                    | {var} var var_decl*
+                    | {proc} proc_decl*
+                    | {func} func_decl*
+                    | {type} type_decl*
+                    ;
+
+  program_body = statement*;
+
+  label_decl = number*;
+  const_decl = identifier expression;
+  var_decl = [name]:identifier* [type]:typedef [value]:expression?;
+  proc_decl = [name]:identifier [args]:var_decl* statement*;
+  func_decl = [name]:identifier [return_type]:typedef statement*;
+  type_decl = [name]:identifier [type]:typedef;
+
+  typedef = {char} char
+       | {bool} boolean
+       | {int} integer
+       | {real} real
+       | {byte} byte
+       | {array} identifier
+       | {range} range
+       | {def} identifier;
+
+  range = [min]:expression [max]:expression;
+
+  statement = {if} if [expression]:expression [statement]:statement
+            | {if_else} if [expression]:expression [then]:statement [else]:statement
+            | {forward} forward;
+
+  expression = {add} [left]:expression [right]:expression
+             | {sub} [left]:expression [right]:expression
+             | {mult} [left]:expression [right]:expression
+             | {div} [left]:expression [right]:expression
+             | {mod} [left]:expression [right]:expression
+             | {div_div} [left]:expression [right]:expression
+             | {number} number
+             | {float} float
+             | {string} string_literal
+             | {true} true
+             | {false} false;
