@@ -167,14 +167,14 @@ Productions
                                       { -> New proc_decl(name, [func_param_decl.var_decl], [prog_decl_body.statement])};
   func_param_decl { -> var_decl* } = left_paren prog_arg_list right_paren { -> [prog_arg_list.var_decl] };
 
-  literal_value { -> expression } = {num} number
-                | {string} string_literal
-                | {float} float
+  literal_value { -> expression } = {num} number { -> New expression.number(number) }
+                | {string} string_literal { -> New expression.string(string_literal) }
+                | {float} float { -> New expression.float(float) }
                 | {bool} boolean_literal { -> boolean_literal.expression }
                 ;
 
-  boolean_literal { -> expression } = {true} true
-                  | {false} false;
+  boolean_literal { -> expression } = {true} true { -> New expression.true(true) }
+                  | {false} false { -> New expression.false(false) };
 
   range_expr { -> range } = [min_val]:expression range_op [max_val]:expression { -> New range(min_val, max_val) };
 
