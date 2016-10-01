@@ -127,7 +127,7 @@ Productions
   // Label declarations
   label_decl_block = label_decl+;
   label_decl { -> label_decl } = [label]:label [labels]:label_list semicolon { -> [labels.label] };
-  label_list { -> label* } = {single} number { -> [number] } | {multiple} label_list comma number { -> [label_list.label]};
+  label_list { -> label* } = {single} number { -> [number] } | {multiple} label_list comma number { -> [label_list.label] };
 
 
   // Const declarations
@@ -139,7 +139,7 @@ Productions
   // Type declarations
   type_decl_block { -> type_decl* } = type type_decl_list { -> [type_decl_list.type_decl] };
   type_decl_list { -> type_decl* } = type_decl+ { -> [type_decl]};
-  type_decl { -> type_decl } = [name]:identifier equal [type]:generic_type semicolon { -> New type_decl(name, type.typedef)};
+  type_decl { -> type_decl } = [name]:identifier equal [type]:generic_type semicolon { -> New type_decl([name], type.typedef) };
 
   // Var declarations
   var_decl_block { -> var_decl* } = var var_decl_list { -> [var_decl_list.var_decl] };
@@ -148,12 +148,12 @@ Productions
 
   arg_decl { -> var_decl* } = [vars]:identifier_list colon generic_type { -> New var_decl([vars.identifier], generic_type.typedef, Null) };
   arg_decl_list { -> var_decl* } = {simple} arg_decl { -> [arg_decl.var_decl] }
-                | {multi} arg_decl_list semicolon arg_decl { -> [arg_decl_list.var_decl, arg_decl.var_decl]};
+                | {multi} arg_decl_list semicolon arg_decl { -> [arg_decl_list.var_decl, arg_decl.var_decl] };
 
   // Procedure declarations
   proc_decl_block { -> proc_decl } = procedure [proc_name]:identifier proc_param_decl? [end_head]:semicolon
                                      label_decl_block? var_decl_block? prog_decl_body [end_proc]:semicolon
-                                     { -> New proc_decl(proc_name, [proc_param_decl.var_decl], [prog_decl_body.statement])};
+                                     { -> New proc_decl(proc_name, [proc_param_decl.var_decl], [prog_decl_body.statement]) };
   prog_decl_body { -> statement* } = {fwd} forward { -> Null }
                  | {forward} begin statements end { -> [statements.statement] };
   proc_param_decl { -> var_decl* } = {args} left_paren prog_arg_list right_paren { -> [prog_arg_list.var_decl] };
@@ -164,7 +164,7 @@ Productions
   // Function declarations
   func_decl_block { -> func_decl } = function [name]:identifier func_param_decl? colon [type]:simple_type [end_head]:semicolon
                                      label_decl_block? var_decl_block? prog_decl_body [end_func]:semicolon
-                                      { -> New proc_decl(name, [func_param_decl.var_decl], [prog_decl_body.statement])};
+                                     { -> New func_decl(name, type.typedef, [func_param_decl.var_decl], [prog_decl_body.statement]) };
   func_param_decl { -> var_decl* } = left_paren prog_arg_list right_paren { -> [prog_arg_list.var_decl] };
 
   literal_value { -> expression } = {num} number { -> New expression.number(number) }
@@ -178,40 +178,40 @@ Productions
 
   range_expr { -> range } = [min_val]:expression range_op [max_val]:expression { -> New range(min_val, max_val) };
 
-  generic_type { -> typedef } = {packed_type} packed generic_type
-               | {file_def} file_type_def
-               | {record} record_def
-               | {pointer} pointer_def
-               | {simple} simple_type
+  generic_type { -> typedef } = {packed_type} packed generic_type { -> New typedef.packed(generic_type.typedef) }
+               | {file_def} file_type_def { -> file_type_def.typedef }
+               | {record} record_def { -> record_def.typedef }
+               | {pointer} pointer_def { -> pointer_def.typedef }
+               | {simple} [type]:simple_type { -> type.typedef }
                ;
 
-  simple_type { -> typedef } = {char_type} char
-              | {boolean_type} boolean
-              | {integer_type} integer
-              | {real_type} real
-              | {byte_type} byte
-              | {array_type} array_type_def
-              | {user_type} [type_name]:identifier
-              | {range_type} range_expr
+  simple_type { -> typedef } = {char_type} char { -> New typedef.char(char) }
+              | {boolean_type} boolean { -> New typedef.bool(boolean) }
+              | {integer_type} integer { -> New typedef.int(integer) }
+              | {real_type} real { -> New typedef.real(real) }
+              | {byte_type} byte { -> New typedef.byte(byte) }
+              | {array_type} array_type_def { -> array_type_def.typedef }
+              | {user_type} [type_name]:identifier { -> New typedef.def(type_name) }
+              | {range_type} range_expr { -> range_expr.range }
               ;
-  file_type_def = file of [sub_type]:simple_type;
-  pointer_def = caret simple_type;
+  file_type_def { -> typedef } = file of [sub_type]:simple_type { -> New typedef.file(sub_type.typedef) };
+  pointer_def { -> typedef } = caret simple_type { -> New typedef.pointer(simple_type.typedef) };
 
   // Record definition
-  record_def = record record_member+ end;
-  record_member = {simple_member} simple_member_type semicolon
+  record_def { -> typedef } = record record_member+ end { -> New typedef.record([record_member.type_decl]) };
+  record_member { -> type_decl } = {simple_member} simple_member_type semicolon { -> simple_member_type.type_decl }
                 | {case_member} case [member_type]:identifier of case_branch+ ;
 
   simple_member_type_list = {simple} simple_member_type
                           | {list} simple_member_type semicolon simple_member_type_list;
-  simple_member_type = identifier_list colon simple_type;
+  simple_member_type { -> type_decl } = identifier_list colon simple_type { -> New type_decl([identifier_list.identifier], simple_type.typedef) };
   identifier_list { -> identifier* } = {simple} identifier { -> [identifier] }
                   | identifier_list comma identifier { -> [identifier_list.identifier, identifier] };
 
   case_branch = {branch} case_label left_paren simple_member_type_list right_paren semicolon ;
   case_label = number colon;
 
-  array_type_def = array left_square_bracket simple_type right_square_bracket array_of?;
+  array_type_def { -> typedef } = array left_square_bracket simple_type right_square_bracket array_of? { -> New typedef.array(simple_type.typedef) };
   array_of = of generic_type;
 
   statements { -> statement* } = {single} statement { -> [statement] }
@@ -346,17 +346,21 @@ Abstract Syntax Tree
   const_decl = identifier expression;
   var_decl = [name]:identifier* [type]:typedef [value]:expression?;
   proc_decl = [name]:identifier [args]:var_decl* statement*;
-  func_decl = [name]:identifier [return_type]:typedef statement*;
-  type_decl = [name]:identifier [type]:typedef;
+  func_decl = [name]:identifier [return_type]:typedef [args]:var_decl* statement*;
+  type_decl = [name]:identifier* [type]:typedef;
 
   typedef = {char} char
        | {bool} boolean
        | {int} integer
        | {real} real
        | {byte} byte
-       | {array} identifier
+       | {array} typedef
        | {range} range
-       | {def} identifier;
+       | {def} identifier
+       | {file} typedef
+       | {packed} typedef
+       | {pointer} typedef
+       | {record} type_decl*;
 
   range = [min]:expression [max]:expression;
 
