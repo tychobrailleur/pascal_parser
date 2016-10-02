@@ -200,16 +200,16 @@ Productions
   // Record definition
   record_def { -> typedef } = record record_member+ end { -> New typedef.record([record_member.type_decl]) };
   record_member { -> type_decl } = {simple_member} simple_member_type semicolon { -> simple_member_type.type_decl }
-                | {case_member} case [member_type]:identifier of case_branch+ ;
+                // | {case_member} case [member_type]:identifier of case_branch+ { -> New variable_part(member_type, [case_branch.case_branch])  }
+                ;
 
-  simple_member_type_list = {simple} simple_member_type
-                          | {list} simple_member_type semicolon simple_member_type_list;
+  simple_member_type_list { -> type_decl* } = {simple} simple_member_type { -> [simple_member_type.type_decl] }
+                          | {list} simple_member_type semicolon simple_member_type_list { -> [simple_member_type.type_decl, simple_member_type_list.type_decl] };
   simple_member_type { -> type_decl } = identifier_list colon simple_type { -> New type_decl([identifier_list.identifier], simple_type.typedef) };
   identifier_list { -> identifier* } = {simple} identifier { -> [identifier] }
                   | identifier_list comma identifier { -> [identifier_list.identifier, identifier] };
 
-  case_branch = {branch} case_label left_paren simple_member_type_list right_paren semicolon ;
-  case_label = number colon;
+//  case_branch { -> case_branch } = {branch} number colon left_paren simple_member_type_list right_paren semicolon { -> New case_branch(number, simple_member_type_list.type_decl)};
 
   array_type_def { -> typedef } = array left_square_bracket simple_type right_square_bracket array_of? { -> New typedef.array(simple_type.typedef) };
   array_of = of generic_type;
@@ -217,45 +217,45 @@ Productions
   statements { -> statement* } = {single} statement { -> [statement] }
              | {multiple} [list]:statements semicolon [statement]:statement { -> [list.statement, statement.statement] };
 
-  statement { -> statement } = {without_stmt} stmt_without_trailing_stmt
-            | {label} label_def statement
-            | {if} if [cond]:expression then statement
-            | {if_else} if [cond]:expression then [then_branch]:stmt_no_short_if else [else_branch]:statement
-            | {while} while_stmt
-            | {for_loop} for_loop_stmt
+  statement { -> statement } = {without_stmt} stmt_without_trailing_stmt { -> stmt_without_trailing_stmt.statement }
+            | {label} [label]:label_def statement { -> New statement.labelled(label.label_decl, statement.statement) }
+            | {if} if [cond]:expression then statement { -> New statement.if(cond.expression, statement.statement) }
+            | {if_else} if [cond]:expression then [then_branch]:stmt_no_short_if else [else_branch]:statement { -> New statement.if_else(cond.expression, then_branch.statement, else_branch.statement) }
+            | {while} while_stmt { -> while_stmt.statement }
+            | {for_loop} for_loop_stmt { -> for_loop_stmt.statement }
             ;
 
-  stmt_no_short_if { -> statement } = {without_stmt} stmt_without_trailing_stmt
-                   | {label} label_def stmt_no_short_if
-                   | {if} if [conf]:expression then [then_branch]:stmt_no_short_if else [else_branch]:stmt_no_short_if
-                   | {while} while expression do stmt_no_short_if
-                   | {for} for_loop_stmt_no_short_if
+  stmt_no_short_if { -> statement } = {without_stmt} stmt_without_trailing_stmt { -> stmt_without_trailing_stmt.statement }
+                   | {label} label_def stmt_no_short_if { -> New statement.labelled(label_def.label_decl, stmt_no_short_if.statement) }
+                   | {if} if [cond]:expression then [then_branch]:stmt_no_short_if else [else_branch]:stmt_no_short_if { -> New statement.if_else(cond.expression, then_branch.statement, else_branch.statement) }
+                   | {while} while expression do stmt_no_short_if { -> New statement.while(expression.expression, stmt_no_short_if.statement) }
+                   | {for} for_loop_stmt_no_short_if { -> for_loop_stmt_no_short_if.statement }
                    ;
-  stmt_without_trailing_stmt { -> statement } = {assign} assignment
-                             | {goto} goto_stmt
-                             | {case} case_stmt
-                             | {group} statement_group
-                             | {proc_def} proc_decl_block
-                             | {func_def} func_decl_block
-                             | {proc} procedure_invocation
-                             | {proc_no_arg} proc_invocation_no_arg // Yuk.
-                             | {label} label_decl
-                             | {repeat} repeat_stmt
+  stmt_without_trailing_stmt { -> statement } = {assign} assignment { -> assignment.statement }
+                             | {goto} goto_stmt { -> goto_stmt.statement }
+//                             | {case} case_stmt
+                             | {group} statement_group { -> [statement_group.statement] }
+                             | {proc_def} proc_decl_block { -> New statement.proc_decl(proc_decl_block.proc_decl) }
+                             | {func_def} func_decl_block { -> New statement.func_decl(func_decl_block.func_decl) }
+                             | {proc} procedure_invocation { -> procedure_invocation.statement }
+                             | {proc_no_arg} proc_invocation_no_arg { -> proc_invocation_no_arg.statement } // Yuk.
+                             | {label} label_decl { -> label_decl.statement }
+                             | {repeat} repeat_stmt { -> repeat_stmt.statement }
                              | {empty}
                              ;
 
-  statement_group = begin statements end;
-  label_def = number colon;
-  repeat_stmt = repeat statements until expression;
+  statement_group { -> statement* } = begin statements end { -> [statements.statement] };
+  label_def { -> label_decl } = number colon { -> New label_decl([number]) };
+  repeat_stmt { -> statement } = repeat statements until expression { -> New statement.repeat(expression.expression, [statements.statement]) };
 
-  assignment = var_access assign_op expression;
-  for_loop_stmt = {up} for assignment to expression do statement
-                | {down} for assignment downto expression do statement;
+  assignment { -> statement } = var_access assign_op expression { -> New statement.assign(var_access.identifier, expression.expression) };
+  for_loop_stmt { -> statement } = {up} for assignment to expression do statement { -> New statement.for_up(assignment.statement, expression.expression, statement.statement) }
+                | {down} for assignment downto expression do statement { -> New statement.for_down(assignment.statement, expression.expression, statement.statement) };
 
-  for_loop_stmt_no_short_if = {up} for assignment to expression do stmt_no_short_if
-                            | {down} for assignment downto expression do stmt_no_short_if;
-  while_stmt = while expression do statement;
-  goto_stmt = goto number;
+  for_loop_stmt_no_short_if { -> statement } = {up} for assignment to expression do stmt_no_short_if { -> New statement.for_up(assignment.statement, expression.expression, stmt_no_short_if.statement) }
+                            | {down} for assignment downto expression do stmt_no_short_if { -> New statement.for_down(assignment.statement, expression.expression, stmt_no_short_if.statement) };
+  while_stmt { -> statement } = while expression do statement { -> New statement.while(expression.expression, statement.statement) };
+  goto_stmt { -> statement } = goto number { -> New statement.goto(number) };
   case_stmt = case [member_type]:expression of case_stmt_branches end_case;
   case_stmt_branches = {single} case_stmt_branch
                 | {mult} case_stmt_branches semicolon case_stmt_branch
@@ -265,8 +265,8 @@ Productions
            | {semi_end} semicolon end
            ;
 
-  expression_list = {single} expression
-                  | expression_list comma expression;
+  expression_list { -> expression* } = {single} expression { -> [expression.expression] }
+                  | expression_list comma expression { -> [expression_list.expression, expression.expression] };
 
 
   // Expressions
@@ -280,13 +280,13 @@ Productions
   array_access = identifier left_square_bracket expression right_square_bracket;
   pointer_access = [address]:identifier caret;
 
-  procedure_invocation = identifier left_paren argument_list? right_paren;
+  procedure_invocation { -> statement } = identifier left_paren argument_list? right_paren { -> New statement.proc_call(identifier, [argument_list.expression]) };
   // FIXME: reduce/reduce conflicts if this is made part of procedure_invocation.
-  proc_invocation_no_arg = identifier;
+  proc_invocation_no_arg { -> statement } = identifier { -> New statement.proc_call(identifier, Null) };
 
-  argument_list = {expression} arg
-                | {argument_list} argument_list comma arg;
-  arg = {simple} expression
+  argument_list { -> expression* } = {expression} arg { -> arg.expression }
+                | {argument_list} argument_list comma arg { -> [argument_list.expression, arg.expression]};
+  arg { -> expression } = {simple} expression { -> expression.expression }
       | {width} expression colon [width]:number;
 
   expression = conditional_expression;
@@ -362,11 +362,25 @@ Abstract Syntax Tree
        | {pointer} typedef
        | {record} type_decl*;
 
+  variable_part = [field]:identifier case_branch*;
+  case_branch = [label]:number [types]:type_decl*;
+
   range = [min]:expression [max]:expression;
 
-  statement = {if} if [expression]:expression [statement]:statement
-            | {if_else} if [expression]:expression [then]:statement [else]:statement
-            | {forward} forward;
+  statement = {if} [expression]:expression [statement]:statement
+            | {if_else} [expression]:expression [then]:statement [else]:statement
+            | {labelled} label_decl statement
+            | {forward} forward
+            | {while} [condition]:expression statement
+            | {goto} number
+            | {assign} [name]:identifier [value]:expression
+            | {for_up} [assign]:statement [value]:expression statement
+            | {for_down} [assign]:statement [value]:expression statement
+            | {proc_call} [proc_name]:identifier expression*
+            | {proc_decl} proc_decl
+            | {func_decl} func_decl
+            ;
+
 
   expression = {add} [left]:expression [right]:expression
              | {sub} [left]:expression [right]:expression
