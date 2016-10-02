@@ -18,7 +18,6 @@ public class Main {
             Node tree = parser.parse(args[0]);
 
             Switch visitor = new Emitter();
-            System.out.println(args);
             if (args.length == 2) {
                 if (args[1].equals("--ast")) {
                     System.out.println("Dumping AST...");

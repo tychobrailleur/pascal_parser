@@ -137,10 +137,23 @@ Productions
       {label} label_decl { -> label_decl.statement } |
       {goto} goto_stmt { -> goto_stmt.statement } |
       {assign} assignment { -> assignment.statement } |
+      {proc_call} procedure_call { -> procedure_call.statement } |
       {empty} { -> Null } ;
 
   goto_stmt { -> statement } =
       goto number { -> New statement.goto(number) };
+
+  procedure_call { -> statement } =
+      {with_args} identifier left_paren argument_list? right_paren { -> New statement.proc_call(identifier, [argument_list.expression]) } |
+      {no_arg} identifier { -> New statement.proc_call(identifier, []) };
+
+  argument_list { -> expression* } =
+      {expression} arg { -> [arg.expression] } |
+      {argument_list} argument_list comma arg { -> [argument_list.expression, arg.expression] };
+
+  arg { -> expression } =
+      {simple} expression { -> expression.expression } |
+      {width} expression colon [width]:number { -> New expression.sized_expr(expression.expression, width) };
 
   assignment { -> statement } =
       [var]:var_access assign_op [expr]:expression { -> New statement.assign(var.expression, expr.expression) };
@@ -215,6 +228,7 @@ Abstract Syntax Tree
   statement =
       {label} number* |
       {goto} number |
+      {proc_call} [name]:identifier expression* |
       {assign} [var]:expression [value]:expression;
 
   expression =
@@ -234,6 +248,7 @@ Abstract Syntax Tree
       {or} [left]:expression [right]:expression |
       {and} [left]:expression [right]:expression |
       {number} number |
+      {sized_expr} expression number |
       {string} string_literal |
       {float} float |
       {range} [min]:expression [max]:expression |
