@@ -8,6 +8,7 @@ Helpers
   cr = 13;
   letter = ['a'..'z'] | ['A'..'Z'];
   digit = ['0'..'9'];
+  letter_or_underscore = letter | '_';
 
   line_terminator = lf | cr | cr lf;
   left_brace = '{';
@@ -90,7 +91,7 @@ Tokens
   comment = left_brace [any_character-right_brace]* right_brace;
   blank = ' ' | '\t' | line_terminator;
 
-  identifier = letter (letter | digit)*;
+  identifier = letter_or_underscore (letter_or_underscore | digit)*;
   number = digit+;
   float = float;
 
@@ -138,10 +139,14 @@ Productions
       {goto} goto_stmt { -> goto_stmt.statement } |
       {assign} assignment { -> assignment.statement } |
       {proc_call} procedure_call { -> procedure_call.statement } |
+      {repeat} repeat_stmt { -> repeat_stmt.statement } |
       {empty} { -> Null } ;
 
   goto_stmt { -> statement } =
       goto number { -> New statement.goto(number) };
+
+  repeat_stmt { -> statement } =
+      repeat statements until expression { -> New statement.repeat(expression.expression, [statements.statement]) };
 
   procedure_call { -> statement } =
       {with_args} identifier left_paren argument_list? right_paren { -> New statement.proc_call(identifier, [argument_list.expression]) } |
@@ -229,6 +234,7 @@ Abstract Syntax Tree
       {label} number* |
       {goto} number |
       {proc_call} [name]:identifier expression* |
+      {repeat} [cond]:expression statement* |
       {assign} [var]:expression [value]:expression;
 
   expression =
