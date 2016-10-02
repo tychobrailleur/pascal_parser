@@ -109,217 +109,97 @@ Ignored Tokens
 Productions
 
   pascal_program { -> pascal_program } =
-      [program_header]:program_header
-      [program_decl]:program_decl
-      [program_body]:program_body
-      dot { -> New pascal_program(program_header, program_decl, program_body) };
+      program_header
+      program_body
+      dot { -> New pascal_program(program_header, [program_body.statement]) };
 
-  program_header { -> program_header } = program [program_name]:identifier semicolon { -> New program_header(program_name) };
-  program_decl { -> program_decl } = program_decl_item* { -> New program_decl([program_decl_item]) };
-  program_decl_item { -> program_decl_item } = {label} label_decl {-> label_decl.label_decl }
-                    | {const} const_decl_block {-> const_decl_block.const_decl }
-                    | {var} var_decl_block { -> var_decl_block.var_decl }
-                    | {proc} proc_decl_block { -> proc_decl_block.proc_decl }
-                    | {func} func_decl_block { -> func_decl_block.func_decl }
-                    | {type} type_decl_block { -> type_decl_block.type_decl };
-  program_body { -> program_body } = begin [body]:statements end { -> New program_body([body.statement]) };
+  program_header { -> program_header } =
+      program [name]:identifier semicolon { -> New program_header(name) };
 
-  // Label declarations
-  label_decl_block = label_decl+;
-  label_decl { -> label_decl } = [label]:label [labels]:label_list semicolon { -> [labels.label] };
-  label_list { -> label* } = {single} number { -> [number] } | {multiple} label_list comma number { -> [label_list.label] };
+  program_body { -> statement* } =
+      statement_group { -> [statement_group.statement] };
 
+  label_decl { -> statement } =
+      label label_list { -> New statement.label([label_list.number]) };
 
-  // Const declarations
-  const_decl_block { -> const_decl* } = const const_decl_list { -> [const_decl_list.const_decl] };
-  const_decl_list { -> const_decl* } = const_decl+ { -> [const_decl] };
-  const_decl { -> const_decl } = [name]:identifier equal expression semicolon { -> New  const_decl(name, expression) };
+  label_list { -> number* } =
+      {single} number { -> [number] } |
+      {multiple} label_list comma number { -> [label_list.number, number] };
 
+  statement_group { -> statement* } =
+      begin statements end { -> [statements.statement] };
 
-  // Type declarations
-  type_decl_block { -> type_decl* } = type type_decl_list { -> [type_decl_list.type_decl] };
-  type_decl_list { -> type_decl* } = type_decl+ { -> [type_decl]};
-  type_decl { -> type_decl } = [name]:identifier equal [type]:generic_type semicolon { -> New type_decl([name], type.typedef) };
+  statements { -> statement* } =
+      {single} statement { -> [statement.statement] } |
+      {multi} [list]:statements semicolon [stmt]:statement { -> [list.statement, stmt.statement] };
 
-  // Var declarations
-  var_decl_block { -> var_decl* } = var var_decl_list { -> [var_decl_list.var_decl] };
-  var_decl_list { -> var_decl* } = var_decl+ { -> [var_decl] };
-  var_decl { -> var_decl } = arg_decl semicolon { -> arg_decl.var_decl };
+  statement { -> statement? } =
+      {label} label_decl { -> label_decl.statement } |
+      {goto} goto_stmt { -> goto_stmt.statement } |
+      {assign} assignment { -> assignment.statement } |
+      {empty} { -> Null } ;
 
-  arg_decl { -> var_decl* } = [vars]:identifier_list colon generic_type { -> New var_decl([vars.identifier], generic_type.typedef, Null) };
-  arg_decl_list { -> var_decl* } = {simple} arg_decl { -> [arg_decl.var_decl] }
-                | {multi} arg_decl_list semicolon arg_decl { -> [arg_decl_list.var_decl, arg_decl.var_decl] };
+  goto_stmt { -> statement } =
+      goto number { -> New statement.goto(number) };
 
-  // Procedure declarations
-  proc_decl_block { -> proc_decl } = procedure [proc_name]:identifier proc_param_decl? [end_head]:semicolon
-                                     label_decl_block? var_decl_block? prog_decl_body [end_proc]:semicolon
-                                     { -> New proc_decl(proc_name, [proc_param_decl.var_decl], [prog_decl_body.statement]) };
-  prog_decl_body { -> statement* } = {fwd} forward { -> Null }
-                 | {forward} begin statements end { -> [statements.statement] };
-  proc_param_decl { -> var_decl* } = {args} left_paren prog_arg_list right_paren { -> [prog_arg_list.var_decl] };
+  assignment { -> statement } =
+      [var]:var_access assign_op [expr]:expression { -> New statement.assign(var.expression, expr.expression) };
 
-  prog_arg_list { -> var_decl* } = {simple} var? arg_decl { -> arg_decl.var_decl }
-                | {multi} prog_arg_list semicolon arg_decl { -> [prog_arg_list.var_decl, arg_decl.var_decl] };
+  expression { -> expression } =
+      conditional_expression { -> conditional_expression.expression };
 
-  // Function declarations
-  func_decl_block { -> func_decl } = function [name]:identifier func_param_decl? colon [type]:simple_type [end_head]:semicolon
-                                     label_decl_block? var_decl_block? prog_decl_body [end_func]:semicolon
-                                     { -> New func_decl(name, type.typedef, [func_param_decl.var_decl], [prog_decl_body.statement]) };
-  func_param_decl { -> var_decl* } = left_paren prog_arg_list right_paren { -> [prog_arg_list.var_decl] };
+  conditional_expression { -> expression } =
+      {equal_expression} equal_expression { -> equal_expression.expression };
 
-  literal_value { -> expression } = {num} number { -> New expression.number(number) }
-                | {string} string_literal { -> New expression.string(string_literal) }
-                | {float} float { -> New expression.float(float) }
-                | {bool} boolean_literal { -> boolean_literal.expression }
-                ;
+  equal_expression { -> expression } =
+      {comparison_expression} comparison_expression { -> comparison_expression.expression } |
+      {equal} equal_expression equal comparison_expression { -> New expression.equal(equal_expression.expression, comparison_expression.expression) } |
+      {not_equal} equal_expression neq comparison_expression { -> New expression.not_equal(equal_expression.expression, comparison_expression.expression) } |
+      {not_equal_diamond} equal_expression neq_diamond comparison_expression { -> New expression.not_equal_diamond(equal_expression.expression, comparison_expression.expression) };
 
-  boolean_literal { -> expression } = {true} true { -> New expression.true(true) }
-                  | {false} false { -> New expression.false(false) };
+  comparison_expression { -> expression } =
+      {add_expression} add_expression { -> add_expression.expression } |
+      {lt} comparison_expression lt add_expression { -> New expression.lt(comparison_expression.expression, add_expression.expression) } |
+      {gt} comparison_expression gt add_expression { -> New expression.gt(comparison_expression.expression, add_expression.expression) } |
+      {leq} comparison_expression leq add_expression { -> New expression.leq(comparison_expression.expression, add_expression.expression) } |
+      {geq} comparison_expression geq add_expression { -> New expression.geq(comparison_expression.expression, add_expression.expression) };
 
-  range_expr { -> range } = [min_val]:expression range_op [max_val]:expression { -> New range(min_val, max_val) };
+  add_expression { -> expression } =
+      {mult_expression} mult_expression { -> mult_expression.expression } |
+      {plus} add_expression plus mult_expression { -> New expression.add(add_expression.expression, mult_expression.expression) } |
+      {minus} add_expression minus mult_expression { -> New expression.sub(add_expression.expression, mult_expression.expression) };
 
-  generic_type { -> typedef } = {packed_type} packed generic_type { -> New typedef.packed(generic_type.typedef) }
-               | {file_def} file_type_def { -> file_type_def.typedef }
-               | {record} record_def { -> record_def.typedef }
-               | {pointer} pointer_def { -> pointer_def.typedef }
-               | {simple} [type]:simple_type { -> type.typedef }
-               ;
+  mult_expression { -> expression } =
+      {bool_expression} bool_expression { -> bool_expression.expression } |
+      {times} mult_expression times bool_expression { -> New expression.mult(mult_expression.expression, bool_expression.expression) } |
+      {division} mult_expression divided bool_expression { -> New expression.div(mult_expression.expression, bool_expression.expression) } |
+      {mod} mult_expression mod bool_expression { -> New expression.mod(mult_expression.expression, bool_expression.expression) }  |
+      {div} mult_expression div bool_expression { -> New expression.div_div(mult_expression.expression, bool_expression.expression) } ;
 
-  simple_type { -> typedef } = {char_type} char { -> New typedef.char(char) }
-              | {boolean_type} boolean { -> New typedef.bool(boolean) }
-              | {integer_type} integer { -> New typedef.int(integer) }
-              | {real_type} real { -> New typedef.real(real) }
-              | {byte_type} byte { -> New typedef.byte(byte) }
-              | {array_type} array_type_def { -> array_type_def.typedef }
-              | {user_type} [type_name]:identifier { -> New typedef.def(type_name) }
-              | {range_type} range_expr { -> range_expr.range }
-              ;
-  file_type_def { -> typedef } = file of [sub_type]:simple_type { -> New typedef.file(sub_type.typedef) };
-  pointer_def { -> typedef } = caret simple_type { -> New typedef.pointer(simple_type.typedef) };
+  bool_expression { -> expression } =
+      {unary_expression} unary_expression { -> unary_expression.expression } |
+      {or} bool_expression or unary_expression { -> New expression.or(bool_expression.expression, unary_expression.expression) } |
+      {and} bool_expression and unary_expression { -> New expression.and(bool_expression.expression, unary_expression.expression) };
 
-  // Record definition
-  record_def { -> typedef } = record record_member+ end { -> New typedef.record([record_member.type_decl]) };
-  record_member { -> type_decl } = {simple_member} simple_member_type semicolon { -> simple_member_type.type_decl }
-                // | {case_member} case [member_type]:identifier of case_branch+ { -> New variable_part(member_type, [case_branch.case_branch])  }
-                ;
+  unary_expression { -> expression } =
+      {val} val_expression { -> val_expression.expression } |
+      {plus} plus unary_expression { -> New expression.plus(unary_expression.expression) } |
+      {minus} minus unary_expression { -> New expression.minus(unary_expression.expression) } |
+      {not} not unary_expression { -> New expression.not(unary_expression.expression) };
 
-  simple_member_type_list { -> type_decl* } = {simple} simple_member_type { -> [simple_member_type.type_decl] }
-                          | {list} simple_member_type semicolon simple_member_type_list { -> [simple_member_type.type_decl, simple_member_type_list.type_decl] };
-  simple_member_type { -> type_decl } = identifier_list colon simple_type { -> New type_decl([identifier_list.identifier], simple_type.typedef) };
-  identifier_list { -> identifier* } = {simple} identifier { -> [identifier] }
-                  | identifier_list comma identifier { -> [identifier_list.identifier, identifier] };
+  val_expression { -> expression } =
+      {literal} [literal]:literal_value { -> literal.expression } |
+      {var} var_access { -> var_access.expression } |
+      {expr} left_paren expression right_paren { -> expression.expression };
 
-//  case_branch { -> case_branch } = {branch} number colon left_paren simple_member_type_list right_paren semicolon { -> New case_branch(number, simple_member_type_list.type_decl)};
+  var_access { -> expression } =
+      {var} identifier { -> New expression.identifier(identifier) };
 
-  array_type_def { -> typedef } = array left_square_bracket simple_type right_square_bracket array_of? { -> New typedef.array(simple_type.typedef) };
-  array_of = of generic_type;
-
-  statements { -> statement* } = {single} statement { -> [statement] }
-             | {multiple} [list]:statements semicolon [statement]:statement { -> [list.statement, statement.statement] };
-
-  statement { -> statement } = {without_stmt} stmt_without_trailing_stmt { -> stmt_without_trailing_stmt.statement }
-            | {label} [label]:label_def statement { -> New statement.labelled(label.label_decl, statement.statement) }
-            | {if} if [cond]:expression then statement { -> New statement.if(cond.expression, statement.statement) }
-            | {if_else} if [cond]:expression then [then_branch]:stmt_no_short_if else [else_branch]:statement { -> New statement.if_else(cond.expression, then_branch.statement, else_branch.statement) }
-            | {while} while_stmt { -> while_stmt.statement }
-            | {for_loop} for_loop_stmt { -> for_loop_stmt.statement }
-            ;
-
-  stmt_no_short_if { -> statement } = {without_stmt} stmt_without_trailing_stmt { -> stmt_without_trailing_stmt.statement }
-                   | {label} label_def stmt_no_short_if { -> New statement.labelled(label_def.label_decl, stmt_no_short_if.statement) }
-                   | {if} if [cond]:expression then [then_branch]:stmt_no_short_if else [else_branch]:stmt_no_short_if { -> New statement.if_else(cond.expression, then_branch.statement, else_branch.statement) }
-                   | {while} while expression do stmt_no_short_if { -> New statement.while(expression.expression, stmt_no_short_if.statement) }
-                   | {for} for_loop_stmt_no_short_if { -> for_loop_stmt_no_short_if.statement }
-                   ;
-  stmt_without_trailing_stmt { -> statement } = {assign} assignment { -> assignment.statement }
-                             | {goto} goto_stmt { -> goto_stmt.statement }
-//                             | {case} case_stmt
-                             | {group} statement_group { -> [statement_group.statement] }
-                             | {proc_def} proc_decl_block { -> New statement.proc_decl(proc_decl_block.proc_decl) }
-                             | {func_def} func_decl_block { -> New statement.func_decl(func_decl_block.func_decl) }
-                             | {proc} procedure_invocation { -> procedure_invocation.statement }
-                             | {proc_no_arg} proc_invocation_no_arg { -> proc_invocation_no_arg.statement } // Yuk.
-                             | {label} label_decl { -> label_decl.statement }
-                             | {repeat} repeat_stmt { -> repeat_stmt.statement }
-                             | {empty}
-                             ;
-
-  statement_group { -> statement* } = begin statements end { -> [statements.statement] };
-  label_def { -> label_decl } = number colon { -> New label_decl([number]) };
-  repeat_stmt { -> statement } = repeat statements until expression { -> New statement.repeat(expression.expression, [statements.statement]) };
-
-  assignment { -> statement } = var_access assign_op expression { -> New statement.assign(var_access.identifier, expression.expression) };
-  for_loop_stmt { -> statement } = {up} for assignment to expression do statement { -> New statement.for_up(assignment.statement, expression.expression, statement.statement) }
-                | {down} for assignment downto expression do statement { -> New statement.for_down(assignment.statement, expression.expression, statement.statement) };
-
-  for_loop_stmt_no_short_if { -> statement } = {up} for assignment to expression do stmt_no_short_if { -> New statement.for_up(assignment.statement, expression.expression, stmt_no_short_if.statement) }
-                            | {down} for assignment downto expression do stmt_no_short_if { -> New statement.for_down(assignment.statement, expression.expression, stmt_no_short_if.statement) };
-  while_stmt { -> statement } = while expression do statement { -> New statement.while(expression.expression, statement.statement) };
-  goto_stmt { -> statement } = goto number { -> New statement.goto(number) };
-  case_stmt = case [member_type]:expression of case_stmt_branches end_case;
-  case_stmt_branches = {single} case_stmt_branch
-                | {mult} case_stmt_branches semicolon case_stmt_branch
-                ;
-  case_stmt_branch = expression_list colon statement;
-  end_case = {end} end
-           | {semi_end} semicolon end
-           ;
-
-  expression_list { -> expression* } = {single} expression { -> [expression.expression] }
-                  | expression_list comma expression { -> [expression_list.expression, expression.expression] };
-
-
-  // Expressions
-  var_access = {var} identifier
-             | {rec} record_access
-             | {arr} array_access
-             | {pointer} pointer_access;
-
-
-  record_access = var_access dot [member]:identifier;
-  array_access = identifier left_square_bracket expression right_square_bracket;
-  pointer_access = [address]:identifier caret;
-
-  procedure_invocation { -> statement } = identifier left_paren argument_list? right_paren { -> New statement.proc_call(identifier, [argument_list.expression]) };
-  // FIXME: reduce/reduce conflicts if this is made part of procedure_invocation.
-  proc_invocation_no_arg { -> statement } = identifier { -> New statement.proc_call(identifier, Null) };
-
-  argument_list { -> expression* } = {expression} arg { -> arg.expression }
-                | {argument_list} argument_list comma arg { -> [argument_list.expression, arg.expression]};
-  arg { -> expression } = {simple} expression { -> expression.expression }
-      | {width} expression colon [width]:number;
-
-  expression = conditional_expression;
-  conditional_expression = {equal_expression} equal_expression;
-  equal_expression = {comparison_expression} comparison_expression
-                   | {equal} equal_expression equal comparison_expression
-                   | {not_equal} equal_expression neq comparison_expression
-                   | {not_equal_diamond} equal_expression neq_diamond comparison_expression;
-  comparison_expression = {add_expression} add_expression
-                        | {lt} comparison_expression lt add_expression
-                        | {gt} comparison_expression gt add_expression
-                        | {leq} comparison_expression leq add_expression
-                        | {geq} comparison_expression geq add_expression;
-  add_expression = {mult_expression} mult_expression
-                 | {plus} add_expression plus mult_expression
-                 | {minus} add_expression minus mult_expression;
-  mult_expression = {bool_expression} bool_expression
-                  | {times} mult_expression times bool_expression
-                  | {division} mult_expression divided bool_expression
-                  | {mod} mult_expression mod bool_expression
-                  | {div} mult_expression div bool_expression;
-  bool_expression = {unary_expression} unary_expression
-                  | {or} bool_expression or unary_expression
-                  | {and} bool_expression and unary_expression;
-  unary_expression = {val} val_expression
-                   | {plus} plus unary_expression
-                   | {minus} minus unary_expression
-                   | {not} not unary_expression;
-  val_expression { -> expression } = {procedure} procedure_invocation
-                 | {var} var_access
-                 | {literal} [literal]:literal_value { -> literal.expression }
-                 | {expr} left_paren expression right_paren;
-
+  literal_value { -> expression } =
+     {num} number { -> New expression.number(number) } |
+     {string} string_literal { -> New expression.string(string_literal) } |
+     {true} true { -> New expression.true(true) } |
+     {false} false { -> New expression.false(false) };
 
 
 
@@ -327,69 +207,39 @@ Abstract Syntax Tree
 
   pascal_program =
       program_header
-      program_decl
-      program_body;
+      statement*;
 
-  program_header = [name]:identifier;
-  program_decl = program_decl_item*;
-  program_decl_item = {label} label label_decl*
-                    | {const} const const_decl*
-                    | {var} var var_decl*
-                    | {proc} proc_decl*
-                    | {func} func_decl*
-                    | {type} type_decl*
-                    ;
+  program_header =
+      identifier;
 
-  program_body = statement*;
+  statement =
+      {label} number* |
+      {goto} number |
+      {assign} [var]:expression [value]:expression;
 
-  label_decl = number*;
-  const_decl = identifier expression;
-  var_decl = [name]:identifier* [type]:typedef [value]:expression?;
-  proc_decl = [name]:identifier [args]:var_decl* statement*;
-  func_decl = [name]:identifier [return_type]:typedef [args]:var_decl* statement*;
-  type_decl = [name]:identifier* [type]:typedef;
-
-  typedef = {char} char
-       | {bool} boolean
-       | {int} integer
-       | {real} real
-       | {byte} byte
-       | {array} typedef
-       | {range} range
-       | {def} identifier
-       | {file} typedef
-       | {packed} typedef
-       | {pointer} typedef
-       | {record} type_decl*;
-
-  variable_part = [field]:identifier case_branch*;
-  case_branch = [label]:number [types]:type_decl*;
-
-  range = [min]:expression [max]:expression;
-
-  statement = {if} [expression]:expression [statement]:statement
-            | {if_else} [expression]:expression [then]:statement [else]:statement
-            | {labelled} label_decl statement
-            | {forward} forward
-            | {while} [condition]:expression statement
-            | {goto} number
-            | {assign} [name]:identifier [value]:expression
-            | {for_up} [assign]:statement [value]:expression statement
-            | {for_down} [assign]:statement [value]:expression statement
-            | {proc_call} [proc_name]:identifier expression*
-            | {proc_decl} proc_decl
-            | {func_decl} func_decl
-            ;
-
-
-  expression = {add} [left]:expression [right]:expression
-             | {sub} [left]:expression [right]:expression
-             | {mult} [left]:expression [right]:expression
-             | {div} [left]:expression [right]:expression
-             | {mod} [left]:expression [right]:expression
-             | {div_div} [left]:expression [right]:expression
-             | {number} number
-             | {float} float
-             | {string} string_literal
-             | {true} true
-             | {false} false;
+  expression =
+      {add} [left]:expression [right]:expression |
+      {sub} [left]:expression [right]:expression |
+      {mult} [left]:expression [right]:expression |
+      {div} [left]:expression [right]:expression |
+      {mod} [left]:expression [right]:expression |
+      {div_div} [left]:expression [right]:expression |
+      {equal} [left]:expression [right]:expression |
+      {not_equal} [left]:expression [right]:expression |
+      {not_equal_diamond} [left]:expression [right]:expression |
+      {lt} [left]:expression [right]:expression |
+      {gt} [left]:expression [right]:expression |
+      {leq} [left]:expression [right]:expression |
+      {geq} [left]:expression [right]:expression |
+      {or} [left]:expression [right]:expression |
+      {and} [left]:expression [right]:expression |
+      {number} number |
+      {string} string_literal |
+      {float} float |
+      {range} [min]:expression [max]:expression |
+      {plus} [positive]:expression |
+      {minus} [negative]:expression |
+      {not} [not]:expression |
+      {true} true |
+      {identifier} identifier |
+      {false} false;

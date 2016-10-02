@@ -2,10 +2,11 @@ package pascal_parser;
 
 
 import pascal_parser.analysis.DepthFirstAdapter;
-import pascal_parser.node.AConstProgramDeclItem;
-import pascal_parser.node.ALabelDecl;
-import pascal_parser.node.AProgramBody;
+import pascal_parser.node.ALabelStatement;
+import pascal_parser.node.APascalProgram;
 import pascal_parser.node.AProgramHeader;
+
+import java.util.Iterator;
 
 public class Emitter extends DepthFirstAdapter {
 
@@ -14,34 +15,33 @@ public class Emitter extends DepthFirstAdapter {
 
     @Override
     public void inAProgramHeader(AProgramHeader node) {
-        System.out.println("program " + node.getProgramName().getText() + ";");
-        level++;
-    }
-
-    public void inAProgramBody(AProgramBody node) {
-        printSpaces();
+        System.out.println("program " + node.getIdentifier().getText() + ";");
         System.out.println("begin");
         level++;
     }
 
-    public void outAProgramBody(AProgramBody node) {
-        level--;
-        printSpaces();
+    @Override
+    public void outAPascalProgram(APascalProgram node) {
         System.out.println("end.");
     }
 
-    public void inALabelDecl(ALabelDecl node) {
+    @Override
+    public void inALabelStatement(ALabelStatement node) {
         printSpaces();
         System.out.print("label ");
 
-    }
+        StringBuilder labels = new StringBuilder();
+        Iterator iterNumber = node.getNumber().iterator();
+        while (iterNumber.hasNext()) {
+            labels.append(iterNumber.next().toString().trim());
+            if (iterNumber.hasNext()) {
+                labels.append(", ");
+            }
+        }
 
-    @Override
-    public void inAConstProgramDeclItem(AConstProgramDeclItem node) {
-        printSpaces();
-        System.out.println("const");
+        System.out.print(labels.toString());
+        System.out.println(";");
     }
-
 
     private void printSpaces() {
         for (int i = 0; i < level; i++) {

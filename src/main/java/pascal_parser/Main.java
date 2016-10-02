@@ -1,16 +1,12 @@
 package pascal_parser;
 
-import pascal_parser.lexer.Lexer;
-import pascal_parser.node.Start;
+import pascal_parser.node.Node;
 import pascal_parser.node.Switch;
-import pascal_parser.parser.Parser;
-
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.PushbackReader;
 
 
 public class Main {
+
+    private final static PascalParser parser = new PascalParser();
 
     public static void main(String args[]) {
 
@@ -19,20 +15,20 @@ public class Main {
         }
 
         try {
-            FileReader infile = new FileReader(args[0]);
-            Lexer l = new Lexer(new PushbackReader(new BufferedReader(infile), 1024));
-            Parser p = new Parser(l);
-            Start tree = p.parse();
+            Node tree = parser.parse(args[0]);
 
             Switch visitor = new Emitter();
+            System.out.println(args);
             if (args.length == 2) {
                 if (args[1].equals("--ast")) {
+                    System.out.println("Dumping AST...");
                     visitor = new AstDump();
                 }
             }
 
             tree.apply(visitor);
         } catch (Exception e) {
+            e.printStackTrace();
             throw new RuntimeException("\n" + e.getMessage());
         }
     }
