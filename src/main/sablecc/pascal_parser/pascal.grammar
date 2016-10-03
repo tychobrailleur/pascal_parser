@@ -118,7 +118,7 @@ Productions
       program [name]:identifier semicolon { -> New program_header(name) };
 
   program_body { -> statement* } =
-      statement_group { -> [statement_group.statement] };
+      statement_block { -> [statement_block.statement] };
 
   label_decl { -> statement } =
       label label_list { -> New statement.label([label_list.number]) };
@@ -127,26 +127,39 @@ Productions
       {single} number { -> [number] } |
       {multiple} label_list comma number { -> [label_list.number, number] };
 
-  statement_group { -> statement* } =
-      begin statements end { -> [statements.statement] };
+  statement_block { -> statement } =
+      begin statements end { -> New statement.block([statements.statement]) };
 
   statements { -> statement* } =
       {single} statement { -> [statement.statement] } |
       {multi} [list]:statements semicolon [stmt]:statement { -> [list.statement, stmt.statement] };
 
   statement { -> statement? } =
+      {without_stmt} statement_without_trailing_stmt { -> statement_without_trailing_stmt.statement } |
+      {while} while_stmt { -> while_stmt.statement };
+
+  statement_without_trailing_stmt { -> statement? } =
       {label} label_decl { -> label_decl.statement } |
       {goto} goto_stmt { -> goto_stmt.statement } |
       {assign} assignment { -> assignment.statement } |
       {proc_call} procedure_call { -> procedure_call.statement } |
       {repeat} repeat_stmt { -> repeat_stmt.statement } |
-      {empty} { -> Null } ;
+      {group} statement_block { -> statement_block.statement } |
+      {for_loop} for_loop_stmt { -> for_loop_stmt.statement } |
+      {empty} { -> Null };
 
   goto_stmt { -> statement } =
       goto number { -> New statement.goto(number) };
 
   repeat_stmt { -> statement } =
       repeat statements until expression { -> New statement.repeat(expression.expression, [statements.statement]) };
+
+  while_stmt { -> statement } =
+      while expression do statement { -> New statement.while(expression.expression, [statement.statement]) };
+
+  for_loop_stmt { -> statement } =
+      {up} for assignment to expression do statement { -> New statement.for_up(assignment.statement, expression.expression, [statement.statement]) } |
+      {down} for assignment downto expression do statement { -> New statement.for_down(assignment.statement, expression.expression, [statement.statement]) };
 
   procedure_call { -> statement } =
       {with_args} identifier left_paren argument_list? right_paren { -> New statement.proc_call(identifier, [argument_list.expression]) } |
@@ -233,8 +246,13 @@ Abstract Syntax Tree
   statement =
       {label} number* |
       {goto} number |
+      {block} statement* |
       {proc_call} [name]:identifier expression* |
       {repeat} [cond]:expression statement* |
+      {while} [cond]:expression statement* |
+      {for_up} [assign]:statement [value]:expression statement* |
+      {for_down} [assign]:statement [value]:expression statement* |
+      {empty} |
       {assign} [var]:expression [value]:expression;
 
   expression =
