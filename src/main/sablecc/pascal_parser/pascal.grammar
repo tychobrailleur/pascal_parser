@@ -111,11 +111,31 @@ Productions
 
   pascal_program { -> pascal_program } =
       program_header
+      program_decl
       program_body
-      dot { -> New pascal_program(program_header, [program_body.statement]) };
+      dot { -> New pascal_program(program_header, [program_decl.statement], [program_body.statement]) };
 
   program_header { -> program_header } =
       program [name]:identifier semicolon { -> New program_header(name) };
+
+  program_decl { -> statement* } =
+      program_decl_item* { -> [program_decl_item.statement] };
+
+  program_decl_item { -> statement* } =
+      {label} label_decl_block { -> [label_decl_block.statement] } |
+      {const} const_decl_block { -> [const_decl_block.statement] };
+
+  label_decl_block { -> statement* } =
+      {single} label_decl semicolon { -> [label_decl.statement] };
+
+  const_decl_block { -> statement* } =
+      const const_decl_list { -> [const_decl_list.statement] };
+
+  const_decl_list { -> statement* } =
+      const_decl+ { -> [const_decl.statement] };
+
+  const_decl { -> statement } =
+      [name]:identifier equal expression semicolon { -> New statement.const(name, expression.expression) };
 
   program_body { -> statement* } =
       statement_block { -> [statement_block.statement] };
@@ -238,7 +258,8 @@ Abstract Syntax Tree
 
   pascal_program =
       program_header
-      statement*;
+      [declarations]:statement*
+      [body]:statement*;
 
   program_header =
       identifier;
@@ -252,6 +273,7 @@ Abstract Syntax Tree
       {while} [cond]:expression statement* |
       {for_up} [assign]:statement [value]:expression statement* |
       {for_down} [assign]:statement [value]:expression statement* |
+      {const} identifier expression |
       {empty} |
       {assign} [var]:expression [value]:expression;
 

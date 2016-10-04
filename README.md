@@ -18,9 +18,17 @@ cf. https://github.com/tychobrailleur/sablecc-maven-plugin to install.
 
     $ mvn package
 
+During development, it may be convenient to skip the tests:
+
+    $ mvn clean package -Dmaven.test.skip=true
+
 ## Usage
 
     java -jar target/pascal_parser-0.0.1-SNAPSHOT.jar /path/to/tex.p
+
+To debug, you can also use the `--ast` option to dump the AST:
+
+    java -jar target/pascal_parser-0.0.1-SNAPSHOT.jar src/test/resources/test5.pas  --ast
 
 # Known Limitations
 
