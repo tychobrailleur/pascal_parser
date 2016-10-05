@@ -174,12 +174,15 @@ Productions
       {if} if [cond]:expression then statement { -> New statement.if(cond.expression, [statement.statement], []) } |
       {if_else} if [cond]:expression then [then_branch]:stmt_no_short_if else [else_branch]:statement
                          { -> New statement.if(cond.expression, [then_branch.statement], [else_branch.statement]) } |
-      {while} while_stmt { -> while_stmt.statement };
+      {label} number colon statement { -> New statement.labelled(number, [statement.statement]) } |
+      {while} while_stmt { -> while_stmt.statement } |
+      {for} for_loop_stmt { -> for_loop_stmt.statement };
 
   stmt_no_short_if { -> statement? } =
       {without_stmt} statement_without_trailing_stmt { -> statement_without_trailing_stmt.statement } |
       {if} if [cond]:expression then [then_branch]:stmt_no_short_if else [else_branch]:stmt_no_short_if
                          { -> New statement.if(cond.expression, [then_branch.statement], [else_branch.statement]) } |
+      {label} number colon stmt_no_short_if { -> New statement.labelled(number, [stmt_no_short_if.statement]) } |
       {while} while expression do stmt_no_short_if { -> New statement.while(expression.expression, [stmt_no_short_if.statement]) } |
       {for} for_loop_stmt_no_short_if { -> for_loop_stmt_no_short_if.statement };
 
@@ -316,8 +319,10 @@ Abstract Syntax Tree
       {for_down} [assign]:statement [value]:expression statement* |
       {const} identifier expression |
       {var} [name]:identifier* [type]:typedef [value]:expression? |
-      {empty} |
-      {assign} [var]:expression [value]:expression;
+      {assign} [var]:expression [value]:expression |
+      {labelled} number statement* |
+      {empty} ;
+
 
   typedef =
       {char} char |
