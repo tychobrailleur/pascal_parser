@@ -145,7 +145,9 @@ Productions
       {label} label_decl_block { -> [label_decl_block.statement] } |
       {const} const_decl_block { -> [const_decl_block.statement] } |
       {var} var_decl_block { -> [var_decl_block.statement] } |
-      {type} type_decl_block { -> [type_decl_block.statement] };
+      {type} type_decl_block { -> [type_decl_block.statement] } |
+      {proc} proc_decl { -> [proc_decl.statement] } |
+      {func} func_decl { -> [func_decl.statement] };
 
   label_decl_block { -> statement* } =
       {single} label_decl semicolon { -> [label_decl.statement] };
@@ -163,24 +165,47 @@ Productions
       var var_decl_list semicolon { -> [var_decl_list.statement] };
 
   var_decl_list { -> statement* } =
-     {single} var_decl { -> [var_decl.statement] } |
-     {multi} var_decl_list semicolon var_decl { -> [var_decl_list.statement, var_decl.statement] };
+      {single} var_decl { -> [var_decl.statement] } |
+      {multi} var_decl_list semicolon var_decl { -> [var_decl_list.statement, var_decl.statement] };
 
   var_decl { -> statement } =
-     [vars]:identifier_list colon generic_type { -> New statement.var([vars.identifier], generic_type.typedef, Null) };
+      [vars]:identifier_list colon generic_type { -> New statement.var([vars.identifier], generic_type.typedef, Null) };
 
   type_decl_block { -> statement* } =
-     type type_decl_list { -> [type_decl_list.statement] };
+      type type_decl_list { -> [type_decl_list.statement] };
 
   type_decl_list { -> statement* } =
-     type_decl+ { -> [type_decl.statement] };
+      type_decl+ { -> [type_decl.statement] };
 
   type_decl { -> statement } =
-     [name]:identifier_list equal [type]:generic_type semicolon { -> New statement.type_decl([name.identifier], type.typedef) };
+      [name]:identifier_list equal [type]:generic_type semicolon { -> New statement.type_decl([name.identifier], type.typedef) };
+
+  proc_decl { -> statement } =
+      procedure [proc_name]:identifier proc_param_decl? [end_head]:semicolon
+      program_decl_item*
+      proc_decl_body [end_proc]:semicolon
+      { -> New statement.proc_decl(proc_name, [proc_param_decl.statement], [proc_decl_body.statement]) };
+
+  proc_decl_body { -> statement* } =
+      {fwd} forward { -> [] } |
+      {forward} statement_block { -> [statement_block.statement] };
+
+  proc_param_decl { -> statement* } =
+      {args} left_paren proc_arg_list right_paren { -> [proc_arg_list.statement] };
+
+  proc_arg_list { -> statement* } =
+      {simple} var? var_decl { -> [var_decl.statement] } |
+      {multi} proc_arg_list semicolon var_decl { -> [proc_arg_list.statement, var_decl.statement] };
+
+  func_decl { -> statement } =
+      function [name]:identifier proc_param_decl? colon [type]:simple_type [end_head]:semicolon
+      program_decl_item*
+      proc_decl_body [end_func]:semicolon
+      { -> New statement.func_decl(name, type.typedef, [proc_param_decl.statement], [proc_decl_body.statement]) };
 
   identifier_list { -> identifier* } =
-     {single} identifier { -> [identifier] } |
-     {multi} identifier_list comma identifier { -> [identifier_list.identifier, identifier] };
+      {single} identifier { -> [identifier] } |
+      {multi} identifier_list comma identifier { -> [identifier_list.identifier, identifier] };
 
   program_body { -> statement* } =
       statement_block { -> [statement_block.statement] };
@@ -308,45 +333,45 @@ Productions
       {var} identifier { -> New expression.identifier(identifier) };
 
   literal_value { -> expression } =
-     {num} number { -> New expression.number(number) } |
-     {string} string_literal { -> New expression.string(string_literal) } |
-     {true} true { -> New expression.true(true) } |
-     {false} false { -> New expression.false(false) };
+      {num} number { -> New expression.number(number) } |
+      {string} string_literal { -> New expression.string(string_literal) } |
+      {true} true { -> New expression.true(true) } |
+      {false} false { -> New expression.false(false) };
 
   generic_type { -> typedef } =
-     {packed_type} packed generic_type { -> New typedef.packed(generic_type.typedef) } |
-     {file_def} file of [sub_type]:simple_type { -> New typedef.file(sub_type.typedef) } |
-     {pointer} caret simple_type { -> New typedef.pointer(simple_type.typedef) } |
-     {record} record_def { -> record_def.typedef } |
-     {simple} [type]:simple_type { -> type.typedef };
+      {packed_type} packed generic_type { -> New typedef.packed(generic_type.typedef) } |
+      {file_def} file of [sub_type]:simple_type { -> New typedef.file(sub_type.typedef) } |
+      {pointer} caret simple_type { -> New typedef.pointer(simple_type.typedef) } |
+      {record} record_def { -> record_def.typedef } |
+      {simple} [type]:simple_type { -> type.typedef };
 
   range { -> expression } =
-     [min_val]:expression range_op [max_val]:expression { -> New expression.range(min_val, max_val) };
+      [min_val]:expression range_op [max_val]:expression { -> New expression.range(min_val, max_val) };
 
   range_type { -> typedef } =
-     [min_val]:expression range_op [max_val]:expression { -> New typedef.range(min_val, max_val) };
+      [min_val]:expression range_op [max_val]:expression { -> New typedef.range(min_val, max_val) };
 
   array_type_def { -> typedef } =
-     array left_square_bracket range right_square_bracket of generic_type { -> New typedef.array(range.expression, generic_type.typedef) };
+      array left_square_bracket range right_square_bracket of generic_type { -> New typedef.array(range.expression, generic_type.typedef) };
 
   pointer_def { -> typedef } =
-     caret simple_type { -> New typedef.pointer(simple_type.typedef) };
+      caret simple_type { -> New typedef.pointer(simple_type.typedef) };
 
   record_def { -> typedef } =
-     record record_member+ end { -> New typedef.record([record_member.statement]) };
+      record record_member+ end { -> New typedef.record([record_member.statement]) };
 
   record_member { -> statement } =
-     {simple_member} identifier_list colon generic_type semicolon { -> New statement.type_decl([identifier_list.identifier], generic_type.typedef) };
+      {simple_member} identifier_list colon generic_type semicolon { -> New statement.type_decl([identifier_list.identifier], generic_type.typedef) };
 
   simple_type { -> typedef } =
-     {char_type} char { -> New typedef.char(char) } |
-     {boolean_type} boolean { -> New typedef.bool(boolean) } |
-     {integer_type} integer { -> New typedef.int(integer) } |
-     {real_type} real { -> New typedef.real(real) } |
-     {byte_type} byte { -> New typedef.byte(byte) } |
-     {range_type} range_type { -> range_type.typedef } |
-     {array_type} array_type_def { -> array_type_def.typedef } |
-     {user_type} [type_name]:identifier { -> New typedef.def(type_name) };
+      {char_type} char { -> New typedef.char(char) } |
+      {boolean_type} boolean { -> New typedef.bool(boolean) } |
+      {integer_type} integer { -> New typedef.int(integer) } |
+      {real_type} real { -> New typedef.real(real) } |
+      {byte_type} byte { -> New typedef.byte(byte) } |
+      {range_type} range_type { -> range_type.typedef } |
+      {array_type} array_type_def { -> array_type_def.typedef } |
+      {user_type} [type_name]:identifier { -> New typedef.def(type_name) };
 
 
 
@@ -365,6 +390,8 @@ Abstract Syntax Tree
       {goto} number |
       {block} statement* |
       {proc_call} [name]:identifier expression* |
+      {proc_decl} [name]:identifier [args]:statement* [body]:statement* |
+      {func_decl} [name]:identifier [return_type]:typedef [args]:statement* [body]:statement* |
       {repeat} [cond]:expression statement* |
       {while} [cond]:expression statement* |
       {if} [cond]:expression [then]:statement* [else]:statement* |

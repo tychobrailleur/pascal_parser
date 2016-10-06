@@ -13,6 +13,19 @@ type
         signature: file of byte;
         registered: boolean;
     end;
+
+procedure swap(var a, b: integer);
+var tmp: integer;
+begin
+    tmp := a;
+    a := b;
+    b := tmp;
+end;
+
+function sum(a, b:integer): integer;
+begin
+    sum := a + b;
+end;
 begin
     writeln('test');
 end.
