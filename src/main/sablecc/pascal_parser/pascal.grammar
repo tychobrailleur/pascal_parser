@@ -1,3 +1,23 @@
+/*
+
+   Copyright (C) 2016  Sébastien Le Callonnec
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+
+*/
+
 Package pascal_parser;
 
 
@@ -124,7 +144,8 @@ Productions
   program_decl_item { -> statement* } =
       {label} label_decl_block { -> [label_decl_block.statement] } |
       {const} const_decl_block { -> [const_decl_block.statement] } |
-      {var} var_decl_block { -> [var_decl_block.statement] };
+      {var} var_decl_block { -> [var_decl_block.statement] } |
+      {type} type_decl_block { -> [type_decl_block.statement] };
 
   label_decl_block { -> statement* } =
       {single} label_decl semicolon { -> [label_decl.statement] };
@@ -147,6 +168,15 @@ Productions
 
   var_decl { -> statement } =
      [vars]:identifier_list colon generic_type { -> New statement.var([vars.identifier], generic_type.typedef, Null) };
+
+  type_decl_block { -> statement* } =
+     type type_decl_list { -> [type_decl_list.statement] };
+
+  type_decl_list { -> statement* } =
+     type_decl+ { -> [type_decl.statement] };
+
+  type_decl { -> statement } =
+     [name]:identifier_list equal [type]:generic_type semicolon { -> New statement.type_decl([name.identifier], type.typedef) };
 
   identifier_list { -> identifier* } =
      {single} identifier { -> [identifier] } |
@@ -285,7 +315,28 @@ Productions
 
   generic_type { -> typedef } =
      {packed_type} packed generic_type { -> New typedef.packed(generic_type.typedef) } |
+     {file_def} file of [sub_type]:simple_type { -> New typedef.file(sub_type.typedef) } |
+     {pointer} caret simple_type { -> New typedef.pointer(simple_type.typedef) } |
+     {record} record_def { -> record_def.typedef } |
      {simple} [type]:simple_type { -> type.typedef };
+
+  range { -> expression } =
+     [min_val]:expression range_op [max_val]:expression { -> New expression.range(min_val, max_val) };
+
+  range_type { -> typedef } =
+     [min_val]:expression range_op [max_val]:expression { -> New typedef.range(min_val, max_val) };
+
+  array_type_def { -> typedef } =
+     array left_square_bracket range right_square_bracket of generic_type { -> New typedef.array(range.expression, generic_type.typedef) };
+
+  pointer_def { -> typedef } =
+     caret simple_type { -> New typedef.pointer(simple_type.typedef) };
+
+  record_def { -> typedef } =
+     record record_member+ end { -> New typedef.record([record_member.statement]) };
+
+  record_member { -> statement } =
+     {simple_member} identifier_list colon generic_type semicolon { -> New statement.type_decl([identifier_list.identifier], generic_type.typedef) };
 
   simple_type { -> typedef } =
      {char_type} char { -> New typedef.char(char) } |
@@ -293,6 +344,8 @@ Productions
      {integer_type} integer { -> New typedef.int(integer) } |
      {real_type} real { -> New typedef.real(real) } |
      {byte_type} byte { -> New typedef.byte(byte) } |
+     {range_type} range_type { -> range_type.typedef } |
+     {array_type} array_type_def { -> array_type_def.typedef } |
      {user_type} [type_name]:identifier { -> New typedef.def(type_name) };
 
 
@@ -319,10 +372,10 @@ Abstract Syntax Tree
       {for_down} [assign]:statement [value]:expression statement* |
       {const} identifier expression |
       {var} [name]:identifier* [type]:typedef [value]:expression? |
+      {type_decl} [name]:identifier* [type]:typedef |
       {assign} [var]:expression [value]:expression |
       {labelled} number statement* |
       {empty} ;
-
 
   typedef =
       {char} char |
@@ -330,7 +383,8 @@ Abstract Syntax Tree
       {int} integer |
       {real} real |
       {byte} byte |
-      {array} typedef |
+      {array} expression typedef |
+      {record} statement* |
       {range} [min]:expression [max]:expression |
       {def} identifier |
       {file} typedef |

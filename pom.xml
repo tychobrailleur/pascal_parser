@@ -3,7 +3,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.example</groupId>
+  <groupId>com.weblogism.pascal_parser</groupId>
   <artifactId>pascal_parser</artifactId>
   <version>0.0.1-SNAPSHOT</version>
   <name>pascal_parser</name>
@@ -12,6 +12,14 @@
     <name>Weblogism</name>
     <url>http://www.weblogism.com</url>
   </organization>
+
+  <developers>
+    <developer>
+      <id>sebastien</id>
+      <email>sebastien@weblogism.com</email>
+      <name>Sébastien Le Callonnec</name>
+    </developer>
+  </developers>
 
   <licenses>
     <license>
