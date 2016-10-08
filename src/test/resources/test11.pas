@@ -22,6 +22,7 @@ begin
     b := tmp;
 end;
 
+procedure debughelp; forward;
 function sum(a, b:integer): integer;
 begin
     sum := a + b;
