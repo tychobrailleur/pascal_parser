@@ -325,12 +325,29 @@ Productions
       {not} not unary_expression { -> New expression.not(unary_expression.expression) };
 
   val_expression { -> expression } =
+      {procedure} procedure_invocation { -> procedure_invocation.expression } |
       {literal} [literal]:literal_value { -> literal.expression } |
       {var} var_access { -> var_access.expression } |
       {expr} left_paren expression right_paren { -> expression.expression };
 
   var_access { -> expression } =
-      {var} identifier { -> New expression.identifier(identifier) };
+      {var} identifier { -> New expression.identifier(identifier) } |
+      {rec} record_access { -> record_access.expression } |
+      {arr} array_access { -> array_access.expression } |
+      {pointer} pointer_access { -> pointer_access.expression };
+
+  record_access { -> expression } =
+      var_access dot [member]:identifier { -> New expression.record_access(var_access.expression, member) };
+
+  array_access { -> expression } =
+      identifier left_square_bracket expression right_square_bracket { -> New expression.array_access(identifier, expression.expression) };
+
+  pointer_access { -> expression } =
+      [address]:identifier caret { -> New expression.pointer_access(address) };
+
+  // FIXME: Bridge the gap between procedure_invocation/expression and procedure_call/statement further up.
+  procedure_invocation { -> expression } =
+      identifier left_paren argument_list? right_paren { -> New expression.proc_call(identifier, [argument_list.expression]) };
 
   literal_value { -> expression } =
       {num} number { -> New expression.number(number) } |
@@ -352,7 +369,7 @@ Productions
       [min_val]:expression range_op [max_val]:expression { -> New typedef.range(min_val, max_val) };
 
   array_type_def { -> typedef } =
-      array left_square_bracket range right_square_bracket of generic_type { -> New typedef.array(range.expression, generic_type.typedef) };
+      array left_square_bracket simple_type right_square_bracket of generic_type { -> New typedef.array(simple_type.typedef, generic_type.typedef) };
 
   pointer_def { -> typedef } =
       caret simple_type { -> New typedef.pointer(simple_type.typedef) };
@@ -361,7 +378,20 @@ Productions
       record record_member+ end { -> New typedef.record([record_member.statement]) };
 
   record_member { -> statement } =
-      {simple_member} identifier_list colon generic_type semicolon { -> New statement.type_decl([identifier_list.identifier], generic_type.typedef) };
+      {simple_member} identifier_list colon generic_type semicolon { -> New statement.type_decl([identifier_list.identifier], generic_type.typedef) } |
+      {case_member} case identifier of case_branch+ { -> New statement.record_member(identifier, [case_branch.statement]) };
+
+  // FIXME: value is “number” when it should be “expression”
+  // But this causes shift/reduce conflict with var_access.
+  case_branch { -> statement } =
+      {branch} number colon left_paren simple_member_type_list right_paren semicolon { -> New statement.record_member_opt(New expression.number(number), [simple_member_type_list.statement]) };
+
+  simple_member_type_list { -> statement* } =
+      {simple} simple_member_type { -> [simple_member_type.statement] } |
+      {list} simple_member_type semicolon simple_member_type_list { -> [simple_member_type.statement, simple_member_type_list.statement] };
+
+  simple_member_type { -> statement } =
+      identifier_list colon simple_type { -> New statement.var([identifier_list.identifier], simple_type.typedef, Null) };
 
   simple_type { -> typedef } =
       {char_type} char { -> New typedef.char(char) } |
@@ -400,6 +430,8 @@ Abstract Syntax Tree
       {const} identifier expression |
       {var} [name]:identifier* [type]:typedef [value]:expression? |
       {type_decl} [name]:identifier* [type]:typedef |
+      {record_member} [name]:identifier statement* |
+      {record_member_opt} [value]:expression [fields]:statement* |
       {assign} [var]:expression [value]:expression |
       {labelled} number statement* |
       {empty} ;
@@ -410,7 +442,7 @@ Abstract Syntax Tree
       {int} integer |
       {real} real |
       {byte} byte |
-      {array} expression typedef |
+      {array} [range]:typedef [type]:typedef |
       {record} statement* |
       {range} [min]:expression [max]:expression |
       {def} identifier |
@@ -444,4 +476,8 @@ Abstract Syntax Tree
       {not} [not]:expression |
       {true} true |
       {identifier} identifier |
+      {array_access} [array]:identifier expression |
+      {record_access} [record]:expression [field]:identifier |
+      {pointer_access} [address]:identifier |
+      {proc_call} [name]:identifier [args]:expression* |
       {false} false;
