@@ -152,8 +152,8 @@ Productions
   label_decl_block { -> statement* } =
       {single} label_decl semicolon { -> [label_decl.statement] };
 
-  const_decl_block { -> statement* } =
-      const const_decl_list { -> [const_decl_list.statement] };
+  const_decl_block { -> statement } =
+      const const_decl_list { -> New statement.const_block([const_decl_list.statement]) };
 
   const_decl_list { -> statement* } =
       const_decl+ { -> [const_decl.statement] };
@@ -161,8 +161,8 @@ Productions
   const_decl { -> statement } =
       [name]:identifier equal expression semicolon { -> New statement.const(name, expression.expression) };
 
-  var_decl_block { -> statement* } =
-      var var_decl_list semicolon { -> [var_decl_list.statement] };
+  var_decl_block { -> statement } =
+      var var_decl_list semicolon { -> New statement.var_block([var_decl_list.statement]) };
 
   var_decl_list { -> statement* } =
       {single} var_decl { -> [var_decl.statement] } |
@@ -171,8 +171,8 @@ Productions
   var_decl { -> statement } =
       [vars]:identifier_list colon generic_type { -> New statement.var([vars.identifier], generic_type.typedef, Null) };
 
-  type_decl_block { -> statement* } =
-      type type_decl_list { -> [type_decl_list.statement] };
+  type_decl_block { -> statement } =
+      type type_decl_list { -> New statement.type_block([type_decl_list.statement]) };
 
   type_decl_list { -> statement* } =
       type_decl+ { -> [type_decl.statement] };
@@ -439,6 +439,9 @@ Abstract Syntax Tree
       {label} number* |
       {goto} number |
       {block} statement* |
+      {const_block} statement* |
+      {var_block} statement* |
+      {type_block} statement* |
       {proc_call} [name]:identifier expression* |
       {proc_decl} [name]:identifier [args]:statement* [body]:statement* |
       {func_decl} [name]:identifier [return_type]:typedef [args]:statement* [body]:statement* |
