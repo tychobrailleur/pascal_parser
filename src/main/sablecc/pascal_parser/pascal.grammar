@@ -371,6 +371,7 @@ Productions
   literal_value { -> expression } =
       {num} number { -> New expression.number(number) } |
       {string} string_literal { -> New expression.string(string_literal) } |
+      {float} float { -> New expression.float(float) } |
       {true} true { -> New expression.true(true) } |
       {false} false { -> New expression.false(false) };
 
