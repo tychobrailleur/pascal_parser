@@ -244,6 +244,7 @@ Productions
   statement_without_trailing_stmt { -> statement? } =
       {group} statement_block { -> statement_block.statement } |
       {label} label_decl { -> label_decl.statement } |
+      {case} case_stmt { -> case_stmt.statement } |
       {goto} goto_stmt { -> goto_stmt.statement } |
       {assign} assignment { -> assignment.statement } |
       {proc_call} procedure_call { -> procedure_call.statement } |
@@ -266,6 +267,24 @@ Productions
   for_loop_stmt_no_short_if { -> statement } =
       {up} for assignment to expression do stmt_no_short_if { -> New statement.for_up(assignment.statement, expression.expression, [stmt_no_short_if.statement]) } |
       {down} for assignment downto expression do stmt_no_short_if { -> New statement.for_down(assignment.statement, expression.expression, [stmt_no_short_if.statement]) };
+
+  case_stmt { -> statement } =
+      case [member_type]:expression of case_stmt_branches end_case { -> New statement.case(member_type.expression, [case_stmt_branches.statement]) };
+
+  case_stmt_branches { -> statement* } =
+      {single} case_stmt_branch { -> [case_stmt_branch.statement] } |
+      {mult} case_stmt_branches semicolon case_stmt_branch { -> [case_stmt_branches.statement, case_stmt_branch.statement] };
+
+  case_stmt_branch { -> statement } =
+      expression_list colon statement { -> New statement.case_branch([expression_list.expression], [statement.statement]) };
+
+  expression_list { -> expression* } =
+      {single} expression { -> [expression.expression] } |
+      {multi} expression_list comma expression { -> [expression_list.expression, expression.expression] };
+
+  end_case =
+      {end} end |
+      {semi_end} semicolon end;
 
   procedure_call { -> statement } =
       {with_args} identifier left_paren argument_list? right_paren { -> New statement.proc_call(identifier, [argument_list.expression]) } |
@@ -433,6 +452,8 @@ Abstract Syntax Tree
       {record_member} [name]:identifier statement* |
       {record_member_opt} [value]:expression [fields]:statement* |
       {assign} [var]:expression [value]:expression |
+      {case} [cond]:expression [branches]:statement* |
+      {case_branch} [values]:expression* statement* |
       {labelled} number statement* |
       {empty} ;
 
