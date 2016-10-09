@@ -1,7 +1,6 @@
 package pascal_parser;
 
 import org.junit.Test;
-import pascal_parser.node.Node;
 
 public class ParsingTest {
 
@@ -9,7 +8,7 @@ public class ParsingTest {
 
     @Test
     public void testParseExamples() throws Exception {
-        for (int i = 1; i <= 10; i++) {
+        for (int i = 1; i <= 14; i++) {
             parser.parse("src/test/resources/test" + i + ".pas");
         }
     }

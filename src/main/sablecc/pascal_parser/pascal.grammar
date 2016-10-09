@@ -130,13 +130,10 @@ Ignored Tokens
 Productions
 
   pascal_program { -> pascal_program } =
-      program_header
+      program [name]:identifier semicolon
       program_decl
       program_body
-      dot { -> New pascal_program(program_header, [program_decl.statement], [program_body.statement]) };
-
-  program_header { -> program_header } =
-      program [name]:identifier semicolon { -> New program_header(name) };
+      dot { -> New pascal_program(name, [program_decl.statement], [program_body.statement]) };
 
   program_decl { -> statement* } =
       program_decl_item* { -> [program_decl_item.statement] };
@@ -261,12 +258,16 @@ Productions
       while expression do statement { -> New statement.while(expression.expression, [statement.statement]) };
 
   for_loop_stmt { -> statement } =
-      {up} for assignment to expression do statement { -> New statement.for_up(assignment.statement, expression.expression, [statement.statement]) } |
-      {down} for assignment downto expression do statement { -> New statement.for_down(assignment.statement, expression.expression, [statement.statement]) };
+      {up} for [var]:identifier assign_op [expr]:expression to expression do statement
+                { -> New statement.for_up(var, expr.expression, expression.expression, [statement.statement]) } |
+      {down} for [var]:identifier assign_op [expr]:expression downto expression do statement
+                { -> New statement.for_down(var, expr.expression, expression.expression, [statement.statement]) };
 
   for_loop_stmt_no_short_if { -> statement } =
-      {up} for assignment to expression do stmt_no_short_if { -> New statement.for_up(assignment.statement, expression.expression, [stmt_no_short_if.statement]) } |
-      {down} for assignment downto expression do stmt_no_short_if { -> New statement.for_down(assignment.statement, expression.expression, [stmt_no_short_if.statement]) };
+      {up} for [var]:identifier assign_op [expr]:expression to expression do stmt_no_short_if
+                { -> New statement.for_up(var, expr.expression, expression.expression, [stmt_no_short_if.statement]) } |
+      {down} for [var]:identifier assign_op [expr]:expression downto expression do stmt_no_short_if
+                { -> New statement.for_down(var, expr.expression, expression.expression, [stmt_no_short_if.statement]) };
 
   case_stmt { -> statement } =
       case [member_type]:expression of case_stmt_branches end_case { -> New statement.case(member_type.expression, [case_stmt_branches.statement]) };
@@ -428,12 +429,9 @@ Productions
 Abstract Syntax Tree
 
   pascal_program =
-      program_header
+      [name]:identifier
       [declarations]:statement*
       [body]:statement*;
-
-  program_header =
-      identifier;
 
   statement =
       {label} number* |
@@ -448,8 +446,8 @@ Abstract Syntax Tree
       {repeat} [cond]:expression statement* |
       {while} [cond]:expression statement* |
       {if} [cond]:expression [then]:statement* [else]:statement* |
-      {for_up} [assign]:statement [value]:expression statement* |
-      {for_down} [assign]:statement [value]:expression statement* |
+      {for_up} [var]:identifier [initial]:expression [value]:expression statement* |
+      {for_down} [var]:identifier [initial]:expression [value]:expression statement* |
       {const} identifier expression |
       {var} [name]:identifier* [type]:typedef [value]:expression? |
       {type_decl} [name]:identifier* [type]:typedef |

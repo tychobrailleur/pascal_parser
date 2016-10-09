@@ -22,77 +22,10 @@ package pascal_parser;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import pascal_parser.analysis.DepthFirstAdapter;
-import pascal_parser.node.ALabelStatement;
-import pascal_parser.node.APascalProgram;
-import pascal_parser.node.AProgramHeader;
-import pascal_parser.node.AAddExpression;
-import pascal_parser.node.AAndExpression;
-import pascal_parser.node.AArrayAccessExpression;
-import pascal_parser.node.AArrayTypedef;
-import pascal_parser.node.AAssignStatement;
-import pascal_parser.node.ABlockStatement;
-import pascal_parser.node.ABoolTypedef;
-import pascal_parser.node.AByteTypedef;
-import pascal_parser.node.ACaseBranchStatement;
-import pascal_parser.node.ACaseStatement;
-import pascal_parser.node.ACharTypedef;
-import pascal_parser.node.AConstBlockStatement;
-import pascal_parser.node.AConstStatement;
-import pascal_parser.node.ADefTypedef;
-import pascal_parser.node.ADivDivExpression;
-import pascal_parser.node.ADivExpression;
-import pascal_parser.node.AEmptyStatement;
-import pascal_parser.node.AEqualExpression;
-import pascal_parser.node.AFalseExpression;
-import pascal_parser.node.AFileTypedef;
-import pascal_parser.node.AFloatExpression;
-import pascal_parser.node.AForDownStatement;
-import pascal_parser.node.AForUpStatement;
-import pascal_parser.node.AFuncDeclStatement;
-import pascal_parser.node.AGeqExpression;
-import pascal_parser.node.AGotoStatement;
-import pascal_parser.node.AGtExpression;
-import pascal_parser.node.AIdentifierExpression;
-import pascal_parser.node.AIfStatement;
-import pascal_parser.node.AIntTypedef;
-import pascal_parser.node.ALabelledStatement;
-import pascal_parser.node.ALeqExpression;
-import pascal_parser.node.ALtExpression;
-import pascal_parser.node.AMinusExpression;
-import pascal_parser.node.AModExpression;
-import pascal_parser.node.AMultExpression;
-import pascal_parser.node.ANotEqualDiamondExpression;
-import pascal_parser.node.ANotEqualExpression;
-import pascal_parser.node.ANotExpression;
-import pascal_parser.node.ANumberExpression;
-import pascal_parser.node.AOrExpression;
-import pascal_parser.node.APackedTypedef;
-import pascal_parser.node.APlusExpression;
-import pascal_parser.node.APointerAccessExpression;
-import pascal_parser.node.APointerTypedef;
-import pascal_parser.node.AProcCallExpression;
-import pascal_parser.node.AProcCallStatement;
-import pascal_parser.node.AProcDeclStatement;
-import pascal_parser.node.ARangeExpression;
-import pascal_parser.node.ARangeTypedef;
-import pascal_parser.node.ARealTypedef;
-import pascal_parser.node.ARecordAccessExpression;
-import pascal_parser.node.ARecordMemberOptStatement;
-import pascal_parser.node.ARecordMemberStatement;
-import pascal_parser.node.ARecordTypedef;
-import pascal_parser.node.ARepeatStatement;
-import pascal_parser.node.ASizedExprExpression;
-import pascal_parser.node.AStringExpression;
-import pascal_parser.node.ASubExpression;
-import pascal_parser.node.ATrueExpression;
-import pascal_parser.node.ATypeBlockStatement;
-import pascal_parser.node.ATypeDeclStatement;
-import pascal_parser.node.AVarBlockStatement;
-import pascal_parser.node.AVarStatement;
-import pascal_parser.node.AWhileStatement;
-import pascal_parser.node.PStatement;
+import pascal_parser.node.*;
 import pascal_parser.utils.StringUtils;
 
 public class Emitter extends DepthFirstAdapter {
@@ -103,10 +36,10 @@ public class Emitter extends DepthFirstAdapter {
     String space = "  ";
     private boolean inhibitSpaces = false;
 
-    @Override
-    public void inAProgramHeader(AProgramHeader node) {
-        out.println("program " + node.getIdentifier().getText() + ";");
-        level++;
+    public void inAPascalProgram(APascalProgram node) {
+        out.println("program ");
+        out.println(node.getName().getText());
+        out.println(";");
     }
 
     @Override
@@ -202,15 +135,12 @@ public class Emitter extends DepthFirstAdapter {
     }
 
     @Override
-    public void outAProcCallExpression(AProcCallExpression node) {
-        out.print(")");
-    }
-
-    @Override
-    public void inAProcCallExpression(AProcCallExpression node) {
+    public void caseAProcCallExpression(AProcCallExpression node) {
         out.print(node.getName().getText());
-        if (node.getArgs() != null) {
+        if (node.getArgs() != null && !node.getArgs().isEmpty()) {
             out.print("(");
+            joinApplied(node.getArgs(), ", ");
+            out.print(")");
         }
     }
 
@@ -589,8 +519,9 @@ public class Emitter extends DepthFirstAdapter {
     public void caseAForDownStatement(AForDownStatement node) {
         printSpaces();
         out.print("for ");
-        inhibitSpaces = true;
-        node.getAssign().apply(this);
+        out.print(node.getVar().getText());
+        out.print(" := ");
+        node.getInitial().apply(this);
         out.print(" downto ");
         node.getValue().apply(this);
         out.println(" do ");
@@ -607,8 +538,9 @@ public class Emitter extends DepthFirstAdapter {
     public void caseAForUpStatement(AForUpStatement node) {
         printSpaces();
         out.print("for ");
-        inhibitSpaces = true;
-        node.getAssign().apply(this);
+        out.print(node.getVar().getText());
+        out.print(" := ");
+        node.getInitial().apply(this);
         out.print(" to ");
         node.getValue().apply(this);
         out.println(" do ");
@@ -745,7 +677,7 @@ public class Emitter extends DepthFirstAdapter {
         out.print(node.getName().getText());
         if (node.getExpression() != null && !node.getExpression().isEmpty()) {
             out.print("(");
-            out.print(StringUtils.join(node.getExpression(), ", "));
+            joinApplied(node.getExpression(), ", ");
             out.print(")");
         }
         out.println(";");
@@ -792,6 +724,19 @@ public class Emitter extends DepthFirstAdapter {
             }
         } else {
             inhibitSpaces = false;
+        }
+    }
+
+    private <T extends PExpression> void joinApplied(List<T> entries, String separator) {
+        if (entries != null && !entries.isEmpty()) {
+            Iterator<T> iterEntries = entries.iterator();
+            while (iterEntries.hasNext()) {
+                T entry = iterEntries.next();
+                entry.apply(this);
+                if (iterEntries.hasNext()) {
+                    out.print(separator);
+                }
+            }
         }
     }
 }
