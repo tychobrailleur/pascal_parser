@@ -32,8 +32,8 @@ public class Emitter extends DepthFirstAdapter {
 
     private final PrintStream out = System.out;
 
-    int level = 0;
-    String space = "  ";
+    private int level = 0;
+    private String space = "  ";
     private boolean inhibitSpaces = false;
 
     public void inAPascalProgram(APascalProgram node) {
@@ -620,6 +620,7 @@ public class Emitter extends DepthFirstAdapter {
         out.print(node.getName().getText());
         if (node.getArgs() != null && !node.getArgs().isEmpty()) {
             out.print("(");
+            inhibitSpaces = true;
             List<PStatement> copy = new ArrayList<>(node.getArgs());
             for (PStatement e : copy) {
                 e.apply(this);
@@ -650,6 +651,7 @@ public class Emitter extends DepthFirstAdapter {
         out.print(node.getName().getText());
         if (node.getArgs() != null && !node.getArgs().isEmpty()) {
             out.print("(");
+            inhibitSpaces = true;
             List<PStatement> copy = new ArrayList<>(node.getArgs());
             for (PStatement e : copy) {
                 e.apply(this);
