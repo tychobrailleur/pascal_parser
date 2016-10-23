@@ -181,7 +181,7 @@ Productions
       procedure [proc_name]:identifier proc_param_decl? [end_head]:semicolon
       program_decl_item*
       proc_decl_body [end_proc]:semicolon
-      { -> New statement.proc_decl(proc_name, [proc_param_decl.formal_parameter], [proc_decl_body.statement]) };
+      { -> New statement.proc_decl(proc_name, [proc_param_decl.formal_parameter], [program_decl_item.statement], [proc_decl_body.statement]) };
 
   proc_decl_body { -> statement* } =
       {fwd} forward { -> [] } |
@@ -202,7 +202,7 @@ Productions
       function [name]:identifier proc_param_decl? colon [type]:simple_type [end_head]:semicolon
       program_decl_item*
       proc_decl_body [end_func]:semicolon
-      { -> New statement.func_decl(name, type.typedef, [proc_param_decl.formal_parameter], [proc_decl_body.statement]) };
+      { -> New statement.func_decl(name, type.typedef, [proc_param_decl.formal_parameter], [program_decl_item.statement], [proc_decl_body.statement]) };
 
   identifier_list { -> identifier* } =
       {single} identifier { -> [identifier] } |
@@ -445,8 +445,8 @@ Abstract Syntax Tree
       {var_block} statement* |
       {type_block} statement* |
       {proc_call} [name]:identifier expression* |
-      {proc_decl} [name]:identifier [args]:formal_parameter* [body]:statement* |
-      {func_decl} [name]:identifier [return_type]:typedef [args]:formal_parameter* [body]:statement* |
+      {proc_decl} [name]:identifier [args]:formal_parameter* [decl]:statement* [body]:statement* |
+      {func_decl} [name]:identifier [return_type]:typedef [args]:formal_parameter* [decl]:statement* [body]:statement* |
       {repeat} [cond]:expression statement* |
       {while} [cond]:expression statement* |
       {if} [cond]:expression [then]:statement* [else]:statement* |

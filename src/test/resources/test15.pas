@@ -1,5 +1,7 @@
 program test15;
 procedure printfilename(n,a,e:integer);
+var i:integer;
+k:integer;
 begin
     slowprint(a);
     slowprint(n);
