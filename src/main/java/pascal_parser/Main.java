@@ -48,6 +48,11 @@ public class Main {
                 }
 
                 tree.apply(visitor);
+
+                final SemanticCheckingVerifier semanticCheckingVerifier = new SemanticCheckingVerifier(config);
+                tree.apply(semanticCheckingVerifier);
+
+
             } catch (Exception e) {
                 e.printStackTrace();
                 throw new RuntimeException("\n" + e.getMessage());

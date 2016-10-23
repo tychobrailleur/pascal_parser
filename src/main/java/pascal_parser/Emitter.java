@@ -621,8 +621,8 @@ public class Emitter extends DepthFirstAdapter {
         if (node.getArgs() != null && !node.getArgs().isEmpty()) {
             out.print("(");
             inhibitSpaces = true;
-            List<PStatement> copy = new ArrayList<>(node.getArgs());
-            for (PStatement e : copy) {
+            List<PFormalParameter> copy = new ArrayList<>(node.getArgs());
+            for (PFormalParameter e : copy) {
                 e.apply(this);
             }
             out.print(")");
@@ -652,10 +652,16 @@ public class Emitter extends DepthFirstAdapter {
         if (node.getArgs() != null && !node.getArgs().isEmpty()) {
             out.print("(");
             inhibitSpaces = true;
-            List<PStatement> copy = new ArrayList<>(node.getArgs());
-            for (PStatement e : copy) {
-                e.apply(this);
+
+            Iterator<PFormalParameter> params = node.getArgs().iterator();
+            while (params.hasNext()) {
+                PFormalParameter param = params.next();
+                param.apply(this);
+                if (params.hasNext()) {
+                    out.print(", ");
+                }
             }
+
             out.print(")");
         }
         out.println(";");
@@ -683,7 +689,20 @@ public class Emitter extends DepthFirstAdapter {
             out.print(")");
         }
         out.println(";");
+    }
 
+    @Override
+    public void caseAVarFormalParameter(AVarFormalParameter parameter) {
+        Iterator<TIdentifier> names = parameter.getName().iterator();
+        while (names.hasNext()) {
+            TIdentifier name = names.next();
+            out.print(name.getText());
+            if (names.hasNext()) {
+                out.print(", ");
+            }
+        }
+        out.print(":");
+        out.print(parameter.getType().toString().trim());
     }
 
     @Override
