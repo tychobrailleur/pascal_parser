@@ -56,23 +56,6 @@ public class Emitter extends DepthFirstAdapter {
     }
 
     @Override
-    public void inABlockStatement(ABlockStatement node) {
-        printSpaces();
-        out.println("begin");
-        level++;
-    }
-
-    @Override
-    public void outABlockStatement(ABlockStatement node) {
-        level--;
-        printSpaces();
-        out.print("end");
-        if (level > 1) {
-            out.println();
-        }
-    }
-
-    @Override
     public void inANumberExpression(ANumberExpression node) {
         out.print(node.getNumber().getText());
     }
@@ -369,9 +352,9 @@ public class Emitter extends DepthFirstAdapter {
         for (PStatement e : copy) {
             e.apply(this);
         }
+        level--;
         printSpaces();
         out.print("end");
-        level--;
     }
 
     @Override
@@ -468,12 +451,31 @@ public class Emitter extends DepthFirstAdapter {
         node.getValue().apply(this);
         out.print(": ");
         inhibitSpaces = true;
-        if (node.getFields() != null && ! node.getFields().isEmpty()) {
+        out.print("(");
+        if (node.getFields() != null && !node.getFields().isEmpty()) {
             List<PStatement> copy = new ArrayList<>(node.getFields());
             for (PStatement e : copy) {
                 e.apply(this);
             }
         }
+        out.print(")");
+        inhibitSpaces = false;
+        out.println(";");
+    }
+
+    @Override
+    public void caseARecordMemberSimpleStatement(ARecordMemberSimpleStatement node) {
+        printSpaces();
+        Iterator<TIdentifier> itermembers = node.getMember().iterator();
+        while (itermembers.hasNext()) {
+            TIdentifier identifier = itermembers.next();
+            out.print(identifier.getText());
+            if (itermembers.hasNext()) {
+                out.print(", ");
+            }
+        }
+        out.print(":");
+        node.getType().apply(this);
         out.println(";");
     }
 
@@ -488,8 +490,7 @@ public class Emitter extends DepthFirstAdapter {
         for (PStatement e : copy) {
             e.apply(this);
         }
-        printSpaces();
-        out.println("end;");
+        level--;
     }
 
     @Override
@@ -531,6 +532,7 @@ public class Emitter extends DepthFirstAdapter {
         for (PStatement e : copy) {
             e.apply(this);
         }
+        out.println(";"); // Should check if block statements before printing, or we'll get an extra ';' for other
         level--;
     }
 
@@ -550,6 +552,7 @@ public class Emitter extends DepthFirstAdapter {
         for (PStatement e : copy) {
             e.apply(this);
         }
+        out.println(";"); // Should check if block statements before printing, or we'll get an extra ';' for other
         level--;
     }
 
@@ -625,6 +628,8 @@ public class Emitter extends DepthFirstAdapter {
             for (PFormalParameter e : copy) {
                 e.apply(this);
             }
+
+            inhibitSpaces = false;
             out.print(")");
         }
         out.print(":");
@@ -640,6 +645,7 @@ public class Emitter extends DepthFirstAdapter {
             printSpaces();
             out.println("forward;");
         }
+
         level--;
         out.println();
     }
@@ -661,6 +667,8 @@ public class Emitter extends DepthFirstAdapter {
                     out.print(", ");
                 }
             }
+
+            inhibitSpaces = false;
 
             out.print(")");
         }
@@ -684,6 +692,7 @@ public class Emitter extends DepthFirstAdapter {
             out.println("forward;");
         }
         level--;
+
         out.println();
     }
 
@@ -726,6 +735,7 @@ public class Emitter extends DepthFirstAdapter {
         printSpaces();
         out.print("end");
         if (level > 0) {
+            out.print(";");
             out.println();
         }
     }

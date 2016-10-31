@@ -403,7 +403,7 @@ Productions
       record record_member+ end { -> New typedef.record([record_member.statement]) };
 
   record_member { -> statement } =
-      {simple_member} identifier_list colon generic_type semicolon { -> New statement.type_decl([identifier_list.identifier], generic_type.typedef) } |
+      {simple_member} identifier_list colon generic_type semicolon { -> New statement.record_member_simple([identifier_list.identifier], generic_type.typedef) } |
       {case_member} case identifier of case_branch+ { -> New statement.record_member(identifier, [case_branch.statement]) };
 
   // FIXME: value is “number” when it should be “expression”
@@ -412,7 +412,7 @@ Productions
       {branch} number colon left_paren simple_member_type_list right_paren semicolon { -> New statement.record_member_opt(New expression.number(number), [simple_member_type_list.statement]) };
 
   simple_member_type_list { -> statement* } =
-      {simple} simple_member_type { -> [simple_member_type.statement] } |
+      {simple} simple_member_type semicolon? { -> [simple_member_type.statement] } |
       {list} simple_member_type semicolon simple_member_type_list { -> [simple_member_type.statement, simple_member_type_list.statement] };
 
   simple_member_type { -> statement } =
@@ -455,6 +455,7 @@ Abstract Syntax Tree
       {const} identifier expression |
       {var} [name]:identifier* [type]:typedef [value]:expression? |
       {type_decl} [name]:identifier* [type]:typedef |
+      {record_member_simple} [member]:identifier* [type]:typedef |
       {record_member} [name]:identifier statement* |
       {record_member_opt} [value]:expression [fields]:statement* |
       {assign} [var]:expression [value]:expression |
