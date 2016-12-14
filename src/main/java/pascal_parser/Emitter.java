@@ -635,6 +635,14 @@ public class Emitter extends DepthFirstAdapter {
         out.print(":");
         node.getReturnType().apply(this);
         out.println(";");
+
+        if (node.getDecl() != null && !node.getDecl().isEmpty()) {
+            List<PStatement> copy = new ArrayList<>(node.getDecl());
+            for (PStatement e : copy) {
+                e.apply(this);
+            }
+        }
+
         level++;
         if (node.getBody() != null && !node.getBody().isEmpty()) {
             List<PStatement> copy = new ArrayList<>(node.getBody());

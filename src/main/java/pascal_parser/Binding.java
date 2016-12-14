@@ -20,23 +20,24 @@ package pascal_parser;
 
 */
 
-import pascal_parser.analysis.DepthFirstAdapter;
-import pascal_parser.node.Node;
+public class Binding {
 
-public class AstDump extends DepthFirstAdapter {
+    private String type;
+    private Binding next;
 
-    private final static int SIZE = 2;
-    private int level;
-
-    public void defaultIn(Node node) {
-        for (int i = 0; i < level*SIZE; i++) {
-            System.out.print("-");
-        }
-        level++;
-        System.out.println(node.getClass());
+    public String getType() {
+        return type;
     }
 
-    public void defaultOut(Node node) {
-        level--;
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public Binding getNext() {
+        return next;
+    }
+
+    public void setNext(Binding next) {
+        this.next = next;
     }
 }

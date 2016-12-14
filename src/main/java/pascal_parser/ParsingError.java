@@ -20,23 +20,20 @@ package pascal_parser;
 
 */
 
-import pascal_parser.analysis.DepthFirstAdapter;
-import pascal_parser.node.Node;
+public class ParsingError {
 
-public class AstDump extends DepthFirstAdapter {
+    private int line;
+    private int column;
+    private String message;
 
-    private final static int SIZE = 2;
-    private int level;
 
-    public void defaultIn(Node node) {
-        for (int i = 0; i < level*SIZE; i++) {
-            System.out.print("-");
-        }
-        level++;
-        System.out.println(node.getClass());
+    public ParsingError(int line, int column, String message) {
+        this.line = line;
+        this.column = column;
+        this.message = message;
     }
 
-    public void defaultOut(Node node) {
-        level--;
+    public String toString() {
+        return String.format("(%d, %d) %s", line, column, message);
     }
 }

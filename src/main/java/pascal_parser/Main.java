@@ -23,6 +23,10 @@ package pascal_parser;
 import pascal_parser.node.Node;
 import pascal_parser.node.Switch;
 
+import java.util.List;
+
+import static java.lang.System.out;
+
 
 public class Main {
 
@@ -43,15 +47,22 @@ public class Main {
 
                 Switch visitor = new Emitter();
                 if (config.isDumpAst()) {
-                    System.out.println("Dumping AST...");
+                    out.println("Dumping AST...");
                     visitor = new AstDump();
                 }
 
                 tree.apply(visitor);
 
-                final SemanticCheckingVerifier semanticCheckingVerifier = new SemanticCheckingVerifier(config);
+                final SemanticCheckVerifier semanticCheckingVerifier = new SemanticCheckVerifier(config);
                 tree.apply(semanticCheckingVerifier);
 
+                if (semanticCheckingVerifier.hasErrors()) {
+                    List<ParsingError> errors = semanticCheckingVerifier.getErrors();
+                    for (ParsingError error: errors) {
+                        out.println(error);
+                        System.exit(1);
+                    }
+                }
 
             } catch (Exception e) {
                 e.printStackTrace();
